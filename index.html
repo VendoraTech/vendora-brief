@@ -11,7 +11,8 @@
 :root{color-scheme:light dark;--text:#2c2c2b;--muted:#73726e;--border:#e3e2df;--soft:#f7f7f5;--bg:#fff;--blue:#2383e2;--blue-soft:rgba(35,131,226,.12);--red:#d44c47;--green:#2e7d55;--amber:#a36a00}
 @media (prefers-color-scheme:dark){:root{--text:#e6e6e4;--muted:#9b9a97;--border:#3a3a38;--soft:#252525;--bg:#191919;--blue:#529cca;--blue-soft:rgba(82,156,202,.18);--red:#e57373;--green:#6cc592;--amber:#e0b050}}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);overflow-x:hidden}
+html{overflow-x:hidden}
+html,body{margin:0;background:var(--bg);color:var(--text)}
 body{font:15px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:24px 20px 56px}
 h1{font-size:30px;line-height:1.2;letter-spacing:-.02em;margin:0 0 6px}
@@ -44,14 +45,15 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .status{min-height:22px;margin-top:8px;color:var(--muted);font-size:14px}
 .status.ok{color:var(--green)}.status.err{color:var(--red)}.status.warn{color:var(--amber)}
 .taskhead{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin:18px 0 12px}
-.tasktitle{font-weight:600;overflow-wrap:anywhere;margin:0;font-size:15px}
+.tasktitle{font-weight:600;overflow-wrap:anywhere;margin:0;font-size:15px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .badge{flex:none;font-size:13px;padding:2px 8px;border-radius:999px;background:var(--soft);border:1px solid var(--border);white-space:nowrap}
 .badge:empty{display:none}
-.actions{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--border);padding:12px 0 4px;margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.actions{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--border);padding:12px 0 4px;margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
 .actions .status{margin:0 auto 0 0;flex:1 1 220px}
+.actions .status:empty{display:none}
 [hidden]{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-@media (max-width:560px){.wrap{padding:16px 16px 40px}h1{font-size:25px}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.row.stack{flex-direction:column;align-items:stretch}.actions button{flex:1 1 auto}}
+@media (max-width:560px){.wrap{padding:16px 16px 40px}h1{font-size:25px}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.row.stack{flex-direction:column;align-items:stretch}.taskhead{flex-direction:column;gap:6px}.actions button{flex:1 1 auto;padding:0 12px}}
 </style>
 </head>
 <body>
@@ -152,7 +154,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
     <div class="actions">
       <div id="formStatus" class="status" role="status" aria-live="polite"></div>
-      <button id="reload" type="button" class="secondary">Ricarica da Notion</button>
+      <button id="reload" type="button" class="secondary" aria-label="Ricarica da Notion" title="Ricarica i valori da Notion (scarta le modifiche non salvate)">Ricarica</button>
       <button id="save" type="submit">Salva brief in Notion</button>
     </div>
   </form>

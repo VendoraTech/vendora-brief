@@ -139,6 +139,7 @@ function fillForm(brief) {
   for (const k of TEXT_FIELDS) $(k).value = brief[k] || '';
   for (const box of markets()) box.checked = brief.marketplace.includes(box.value);
   $('taskTitle').textContent = [brief.code, brief.title].filter(Boolean).join(' · ');
+  $('taskTitle').title = brief.title;
   $('completeness').textContent = brief.completeness || '';
   if (![...$('task').options].some((o) => sameId(o.value, brief.pageId))) {
     const o = new Option(optionLabel(current.summary), brief.pageId);
@@ -219,7 +220,7 @@ async function save(e) {
       // Al prossimo salvataggio questi campi verranno sovrascritti con i valori del form.
       for (const k of err.data.conflicts) current.baseline[k] = err.data.brief[k];
       const names = err.data.conflicts.map((k) => LABELS[k]).join(', ');
-      setStatus($('formStatus'), `${err.message} Campi: ${names}. Premi «Ricarica da Notion» per vedere la versione aggiornata, oppure salva di nuovo per sovrascriverla.`, 'warn');
+      setStatus($('formStatus'), `${err.message} Campi: ${names}. Premi «Ricarica» per vedere la versione aggiornata, oppure salva di nuovo per sovrascriverla.`, 'warn');
     } else if (err.status === 400 && err.data.fields) {
       for (const [k, msg] of Object.entries(err.data.fields)) showError(k, msg);
       focusField(Object.keys(err.data.fields)[0]);
