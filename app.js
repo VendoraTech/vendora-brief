@@ -150,6 +150,30 @@ function fillForm(brief) {
   clearErrors();
   dirty = false;
   $('form').hidden = false;
+  prepareExport(brief);
+}
+
+// I dati del brief salvato viaggiano nel frammento dell'URL (#...), che non viene mai inviato a
+// nessun server: la pagina di export li legge nel browser, anche se Notion la apre in un'altra app.
+function base64url(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function prepareExport(brief) {
+  const link = $('export');
+  link.setAttribute('aria-disabled', 'true');
+  const data = { ...snapshot(brief), code: brief.code, client: brief.client, title: brief.title, completeness: brief.completeness, pageId: brief.pageId };
+  const bytes = new TextEncoder().encode(JSON.stringify(data));
+  let fragment = `j=${base64url(bytes)}`;
+  if ('CompressionStream' in window) {
+    const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    fragment = `z=${base64url(new Uint8Array(await new Response(stream).arrayBuffer()))}`;
+  }
+  if (!current || !sameId(current.pageId, brief.pageId)) return; // nel frattempo è stata aperta un'altra task
+  link.href = `export.html#${fragment}`;
+  link.setAttribute('aria-disabled', 'false');
 }
 
 async function loadBrief(pageId) {
@@ -265,6 +289,15 @@ $('task').addEventListener('change', () => {
 });
 
 $('reload').addEventListener('click', () => current && loadBrief(current.pageId));
+
+$('export').addEventListener('click', (e) => {
+  if (dirty) {
+    e.preventDefault();
+    setStatus($('formStatus'), 'Hai modifiche non salvate: salva il brief prima di esportarlo.', 'warn');
+  } else if ($('export').getAttribute('aria-disabled') === 'true') {
+    e.preventDefault();
+  }
+});
 
 $('form').addEventListener('input', (e) => {
   dirty = true;
