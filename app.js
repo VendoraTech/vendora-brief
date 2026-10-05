@@ -30,6 +30,18 @@ const CAT_LABELS = {
 };
 const CAT_KEYS = ['operation', 'asin', 'marketplace', 'currentNode', 'currentNodeId', 'newNode', 'newNodeId', 'parentBrand', 'parentName', 'parentAsins', 'uploadTypes', 'destMarketplaces', 'driveLink'];
 const CAT_MULTI = ['uploadTypes', 'destMarketplaces'];
+
+// Brief CALI STRATEGICI
+const SCOPE_ASIN = 'Uno o più ASIN';
+const CALI_DOM = { destMarketplaces: 'kMarkets', scope: 'kScope', asin: 'kAsin', complaint: 'kComplaint' };
+const CALI_LABELS = { destMarketplaces: 'Marketplace di destinazione', scope: 'Calo di', asin: 'ASIN in calo', complaint: 'Di cosa si lamenta il cliente?' };
+
+// Brief ANALISI OPPORTUNITÀ
+const OPP_DOM = { product: 'oProduct', destMarketplaces: 'oMarkets', price: 'oPrice', format: 'oFormat' };
+const OPP_LABELS = { product: 'Prodotto da lanciare', destMarketplaces: 'Marketplace di destinazione', price: 'Prezzo di vendita', format: 'Formato / Quantità / Materiale' };
+
+const TYPE_NAMES = ['performance', 'catalogo', 'cali', 'opportunita'];
+const pick = (keys, multi, src = {}) => Object.fromEntries(keys.map((k) => [k, multi.includes(k) ? [...(src[k] || [])] : src[k] || '']));
 const checked = (name) => [...document.querySelectorAll(`input[name="${name}"]:checked`)].map((b) => b.value);
 const setChecked = (name, values) => {
   for (const box of document.querySelectorAll(`input[name="${name}"]`)) box.checked = values.includes(box.value);
@@ -45,9 +57,9 @@ const keyStore = storage(KEY_STORAGE);
 const typeStore = storage(TYPE_STORAGE);
 
 let appKey = keyStore.get();
-let briefType = ['performance', 'catalogo'].includes(new URLSearchParams(location.search).get('type'))
-  ? new URLSearchParams(location.search).get('type') : typeStore.get();
-let current = null; // { pageId, summary, brief, baseline: { performance, catalogo } }
+const urlType = new URLSearchParams(location.search).get('type');
+let briefType = TYPE_NAMES.includes(urlType) ? urlType : TYPE_NAMES.includes(typeStore.get()) ? typeStore.get() : '';
+let current = null; // { pageId, summary, brief, baseline: { <tipo>: valori caricati } }
 let dirty = false;
 let pendingSwitch = '';
 let pendingType = '';
@@ -138,10 +150,8 @@ function applyType(type) {
 function renderCurrent() {
   $('form').hidden = !current || !briefType;
   if (!current || !briefType) return;
-  const catalog = briefType === 'catalogo';
-  $('perfFields').hidden = catalog;
-  $('catalogFields').hidden = !catalog;
-  $('completeness').textContent = (catalog ? current.brief.catalog?.completeness : current.brief.completeness) || '';
+  for (const [type, cfg] of Object.entries(TYPES)) $(cfg.section).hidden = type !== briefType;
+  $('completeness').textContent = TYPES[briefType].data(current.brief)?.completeness || '';
   prepareExport();
 }
 
@@ -192,20 +202,18 @@ function snapshot(brief) {
   return values;
 }
 
-function catalogSnapshot(catalog = {}) {
-  return Object.fromEntries(CAT_KEYS.map((k) => [k, CAT_MULTI.includes(k) ? [...(catalog[k] || [])] : catalog[k] || '']));
-}
+const catalogSnapshot = (c) => pick(CAT_KEYS, CAT_MULTI, c);
+const caliSnapshot = (c) => pick(Object.keys(CALI_DOM), ['destMarketplaces'], c);
+const oppSnapshot = (o) => pick(Object.keys(OPP_DOM), ['destMarketplaces'], o);
 
 function fillForm(brief) {
   current = {
     pageId: brief.pageId,
     summary: { id: brief.pageId, title: brief.title, client: brief.client, code: brief.code },
     brief,
-    baseline: { performance: snapshot(brief), catalogo: catalogSnapshot(brief.catalog) },
+    baseline: Object.fromEntries(Object.entries(TYPES).map(([type, cfg]) => [type, cfg.snapshot(cfg.data(brief) || {})])),
   };
-  for (const k of TEXT_FIELDS) $(k).value = brief[k] || '';
-  for (const box of markets()) box.checked = brief.marketplace.includes(box.value);
-  fillCatalog(current.baseline.catalogo);
+  for (const [type, cfg] of Object.entries(TYPES)) cfg.fill(current.baseline[type]);
   $('taskTitle').textContent = [brief.code, brief.title].filter(Boolean).join(' · ');
   $('taskTitle').title = brief.title;
   if (![...$('task').options].some((o) => sameId(o.value, brief.pageId))) {
@@ -217,6 +225,11 @@ function fillForm(brief) {
   clearErrors();
   dirty = false;
   renderCurrent();
+}
+
+function fillPerformance(values) {
+  for (const k of TEXT_FIELDS) $(k).value = values[k];
+  for (const box of markets()) box.checked = values.marketplace.includes(box.value);
 }
 
 // --- Brief CATALOGO ---
@@ -255,8 +268,25 @@ async function loadTree(marketplace) {
   }
 }
 
-const operationValue = () => document.querySelector('input[name=cOperation]:checked')?.value || '';
+const radioValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value || '';
+const operationValue = () => radioValue('cOperation');
 const parseAsins = (text) => [...new Set(text.toUpperCase().split(/[\s,;]+/).filter(Boolean))];
+
+function asinError(text) {
+  const tokens = parseAsins(text);
+  const invalid = tokens.filter((t) => !/^[A-Z0-9]{10}$/.test(t));
+  if (!tokens.length) return 'Inserisci almeno un ASIN.';
+  return invalid.length ? `ASIN non valido: ${invalid.slice(0, 3).join(', ')} (servono 10 caratteri, es. B0FZTK766T).` : '';
+}
+
+// Mostra gli errori (chiave API → elemento del form) e porta il cursore sul primo campo da correggere.
+function reportErrors(errors, dom) {
+  clearErrors();
+  const keys = Object.keys(errors).filter((k) => errors[k]);
+  for (const k of keys) showError(dom[k], errors[k]);
+  if (keys.length) focusField(dom[keys[0]]);
+  return keys.length === 0;
+}
 
 function collectCatalog() {
   const op = operationValue();
@@ -283,14 +313,7 @@ function collectCatalog() {
 }
 
 function validateCatalog(v) {
-  clearErrors();
   const errors = {};
-  const asinError = (text) => {
-    const tokens = parseAsins(text);
-    const invalid = tokens.filter((t) => !/^[A-Z0-9]{10}$/.test(t));
-    if (!tokens.length) return 'Inserisci almeno un ASIN.';
-    return invalid.length ? `ASIN non valido: ${invalid.slice(0, 3).join(', ')} (servono 10 caratteri, es. B0FZTK766T).` : '';
-  };
   if (!v.operation) errors.operation = 'Scegli l’operazione da effettuare.';
   if (v.operation === OP_NODE) {
     errors.asin = asinError($('cAsin').value);
@@ -311,11 +334,74 @@ function validateCatalog(v) {
     if (!v.driveLink) errors.driveLink = 'Incolla il link della cartella Drive.';
     else if (!/^https?:\/\/\S+\.\S+/i.test(v.driveLink)) errors.driveLink = 'Inserisci un link valido (es. https://drive.google.com/drive/folders/…).';
   }
-  const keys = Object.keys(errors).filter((k) => errors[k]);
-  for (const k of keys) showError(CAT_DOM[k], errors[k]);
-  if (keys.length) focusField(CAT_DOM[keys[0]]);
-  return keys.length === 0;
+  return reportErrors(errors, CAT_DOM);
 }
+
+// --- Brief CALI STRATEGICI ---
+function fillCali(c) {
+  setChecked('kMarkets', c.destMarketplaces);
+  for (const radio of document.querySelectorAll('input[name=kScope]')) radio.checked = radio.value === c.scope;
+  $('kAsin').value = c.asin;
+  $('kComplaint').value = c.complaint;
+  $('kAsinField').hidden = c.scope !== SCOPE_ASIN;
+}
+
+function collectCali() {
+  const scope = radioValue('kScope');
+  return {
+    destMarketplaces: checked('kMarkets'),
+    scope,
+    asin: scope === SCOPE_ASIN ? parseAsins($('kAsin').value).join('\n') : '',
+    complaint: $('kComplaint').value.trim(),
+  };
+}
+
+function validateCali(v) {
+  return reportErrors({
+    destMarketplaces: v.destMarketplaces.length ? '' : 'Scegli almeno un marketplace di destinazione.',
+    scope: v.scope ? '' : 'Indica se il calo riguarda uno o più ASIN o tutto l’account.',
+    asin: v.scope === SCOPE_ASIN ? asinError($('kAsin').value) : '',
+    complaint: v.complaint ? '' : 'Campo obbligatorio.',
+  }, CALI_DOM);
+}
+
+// --- Brief ANALISI OPPORTUNITÀ ---
+function fillOpp(o) {
+  $('oProduct').value = o.product;
+  setChecked('oMarkets', o.destMarketplaces);
+  $('oPrice').value = o.price;
+  $('oFormat').value = o.format;
+}
+
+function collectOpp() {
+  return { product: $('oProduct').value.trim(), destMarketplaces: checked('oMarkets'), price: $('oPrice').value.trim(), format: $('oFormat').value.trim() };
+}
+
+function validateOpp(v) {
+  return reportErrors({
+    product: v.product ? '' : 'Campo obbligatorio.',
+    destMarketplaces: v.destMarketplaces.length ? '' : 'Scegli almeno un marketplace di destinazione.',
+    price: v.price ? '' : 'Campo obbligatorio.',
+    format: v.format ? '' : 'Campo obbligatorio.',
+  }, OPP_DOM);
+}
+
+// Registro dei tipi di brief: sezione del form, dove stanno i dati nella risposta, lettura/scrittura del form.
+const TYPES = {
+  performance: { section: 'perfFields', data: (b) => b, snapshot, fill: fillPerformance, collect, validate, dom: (k) => k, labels: LABELS },
+  catalogo: {
+    section: 'catalogFields', data: (b) => b.catalog, snapshot: catalogSnapshot, fill: fillCatalog,
+    collect: collectCatalog, validate: validateCatalog, dom: (k) => CAT_DOM[k], labels: CAT_LABELS,
+  },
+  cali: {
+    section: 'caliFields', data: (b) => b.cali, snapshot: caliSnapshot, fill: fillCali,
+    collect: collectCali, validate: validateCali, dom: (k) => CALI_DOM[k], labels: CALI_LABELS,
+  },
+  opportunita: {
+    section: 'oppFields', data: (b) => b.opportunita, snapshot: oppSnapshot, fill: fillOpp,
+    collect: collectOpp, validate: validateOpp, dom: (k) => OPP_DOM[k], labels: OPP_LABELS,
+  },
+};
 
 // --- Export ---
 // I dati del brief salvato viaggiano nel frammento dell'URL (#...), che non viene mai inviato a
@@ -331,10 +417,9 @@ async function prepareExport() {
   link.setAttribute('aria-disabled', 'true');
   const { brief, pageId } = current;
   const type = briefType;
-  const common = { type, code: brief.code, client: brief.client, title: brief.title, pageId };
-  const data = type === 'catalogo'
-    ? { ...catalogSnapshot(brief.catalog), ...common, completeness: brief.catalog?.completeness || '' }
-    : { ...snapshot(brief), ...common, completeness: brief.completeness };
+  const cfg = TYPES[type];
+  const section = cfg.data(brief) || {};
+  const data = { ...cfg.snapshot(section), type, code: brief.code, client: brief.client, title: brief.title, pageId, completeness: section.completeness || '' };
   const bytes = new TextEncoder().encode(JSON.stringify(data));
   let fragment = `j=${base64url(bytes)}`;
   if ('CompressionStream' in window) {
@@ -371,7 +456,7 @@ function collect() {
 }
 
 function clearErrors() {
-  for (const k of [...TEXT_FIELDS, 'marketplace', ...Object.values(CAT_DOM)]) showError(k, '');
+  for (const k of [...TEXT_FIELDS, 'marketplace', ...Object.values(CAT_DOM), ...Object.values(CALI_DOM), ...Object.values(OPP_DOM)]) showError(k, '');
 }
 
 function fieldTargets(key) {
@@ -402,9 +487,9 @@ function validate(values) {
 async function save(e) {
   e.preventDefault();
   if (!current || !briefType) return;
-  const catalog = briefType === 'catalogo';
-  const values = catalog ? collectCatalog() : collect();
-  if (!(catalog ? validateCatalog(values) : validate(values))) {
+  const cfg = TYPES[briefType];
+  const values = cfg.collect();
+  if (!cfg.validate(values)) {
     setStatus($('formStatus'), 'Compila i campi obbligatori evidenziati.', 'err');
     return;
   }
@@ -420,13 +505,13 @@ async function save(e) {
   } catch (err) {
     if (err.status === 409 && err.data.conflicts) {
       // Al prossimo salvataggio questi campi verranno sovrascritti con i valori del form.
-      const theirs = catalog ? err.data.brief.catalog : err.data.brief;
+      const theirs = cfg.data(err.data.brief);
       for (const k of err.data.conflicts) current.baseline[briefType][k] = theirs[k];
-      const names = [...new Set(err.data.conflicts.map((k) => (catalog ? CAT_LABELS : LABELS)[k]))].join(', ');
+      const names = [...new Set(err.data.conflicts.map((k) => cfg.labels[k]))].join(', ');
       setStatus($('formStatus'), `${err.message} Campi: ${names}. Premi «Ricarica» per vedere la versione aggiornata, oppure salva di nuovo per sovrascriverla.`, 'warn');
     } else if (err.status === 400 && err.data.fields) {
-      const keys = Object.keys(err.data.fields).map((k) => (catalog ? CAT_DOM[k] : k)).filter(Boolean);
-      Object.entries(err.data.fields).forEach(([k, msg]) => (catalog ? CAT_DOM[k] : k) && showError(catalog ? CAT_DOM[k] : k, msg));
+      const keys = Object.keys(err.data.fields).map(cfg.dom).filter(Boolean);
+      Object.entries(err.data.fields).forEach(([k, msg]) => cfg.dom(k) && showError(cfg.dom(k), msg));
       if (keys.length) focusField(keys[0]);
       setStatus($('formStatus'), err.message, 'err');
     } else if (err.status !== 401) {
@@ -502,6 +587,10 @@ $('export').addEventListener('click', (e) => {
 
 $('catalogFields').addEventListener('change', (e) => {
   if (e.target.name === 'cOperation') showOperation(e.target.value);
+});
+
+$('caliFields').addEventListener('change', (e) => {
+  if (e.target.name === 'kScope') $('kAsinField').hidden = e.target.value !== SCOPE_ASIN;
 });
 
 $('cMarketplace').addEventListener('change', () => {

@@ -97,7 +97,9 @@ button:disabled{opacity:.55;cursor:not-allowed}
     <legend>Tipo di brief <span class="req" aria-hidden="true">*</span></legend>
     <div class="types">
       <label class="type"><input type="radio" name="briefType" value="performance"><span><strong>PERFORMANCE</strong><small>Brief prodotto: brand, marketplace, specifiche, punti di forza, competitor.</small></span></label>
-      <label class="type"><input type="radio" name="briefType" value="catalogo"><span><strong>CATALOGO</strong><small>Operazioni tecniche: variazione del nodo, creazione di un parent.</small></span></label>
+      <label class="type"><input type="radio" name="briefType" value="catalogo"><span><strong>CATALOGO</strong><small>Operazioni tecniche: variazione del nodo, creazione di un parent, caricamenti grafici.</small></span></label>
+      <label class="type"><input type="radio" name="briefType" value="cali"><span><strong>CALI STRATEGICI</strong><small>Calo di vendite su uno o più ASIN o sull’intero account.</small></span></label>
+      <label class="type"><input type="radio" name="briefType" value="opportunita"><span><strong>ANALISI OPPORTUNITÀ</strong><small>Valutazione di un nuovo prodotto che il cliente vorrebbe lanciare.</small></span></label>
     </div>
     <div id="typeStatus" class="status" role="status" aria-live="polite"></div>
   </fieldset>
@@ -288,6 +290,71 @@ button:disabled{opacity:.55;cursor:not-allowed}
           <input id="cUDrive" type="url" inputmode="url" maxlength="2000" autocomplete="off" spellcheck="false" placeholder="https://drive.google.com/drive/folders/…" aria-describedby="cUDriveHint cUDriveError">
           <div id="cUDriveError" class="error"></div>
         </div>
+      </div>
+    </div>
+
+    <div id="caliFields" hidden>
+      <fieldset class="card" data-field="kMarkets" aria-describedby="kMarketsError">
+        <legend>Marketplace di destinazione <span class="req" aria-hidden="true">*</span></legend>
+        <div class="checks">
+            <label class="check"><input type="checkbox" name="kMarkets" value="IT">Italia</label>
+            <label class="check"><input type="checkbox" name="kMarkets" value="FR">Francia</label>
+            <label class="check"><input type="checkbox" name="kMarkets" value="ES">Spagna</label>
+            <label class="check"><input type="checkbox" name="kMarkets" value="DE">Germania</label>
+            <label class="check"><input type="checkbox" name="kMarkets" value="UK">UK</label>
+            <label class="check"><input type="checkbox" name="kMarkets" value="US">US</label>
+        </div>
+        <div id="kMarketsError" class="error"></div>
+      </fieldset>
+      <fieldset class="card" data-field="kScope" aria-describedby="kScopeError">
+        <legend>Calo di <span class="req" aria-hidden="true">*</span></legend>
+        <div class="types">
+          <label class="type"><input type="radio" name="kScope" value="Uno o più ASIN"><span><strong>Uno o più ASIN</strong><small>Il calo riguarda prodotti specifici.</small></span></label>
+          <label class="type"><input type="radio" name="kScope" value="Calo generale dell’account"><span><strong>Calo generale dell’account</strong><small>Il calo riguarda tutto l’account.</small></span></label>
+        </div>
+        <div id="kScopeError" class="error"></div>
+      </fieldset>
+      <div id="kAsinField" class="card" data-field="kAsin" hidden>
+        <label for="kAsin">ASIN in calo <span class="req" aria-hidden="true">*</span></label>
+        <p id="kAsinHint" class="hint">Uno o più ASIN, separati da spazio, virgola o a capo.</p>
+        <textarea id="kAsin" rows="3" maxlength="3000" spellcheck="false" autocapitalize="characters" placeholder="B0FZTK766T&#10;B0FZTL27MW" aria-describedby="kAsinHint kAsinError"></textarea>
+        <div id="kAsinError" class="error"></div>
+      </div>
+      <div class="card" data-field="kComplaint">
+        <label for="kComplaint">Di cosa si lamenta il cliente? <span class="req" aria-hidden="true">*</span></label>
+        <p id="kComplaintHint" class="hint">Scrivi esplicitamente la richiesta e la considerazione che ha fatto il cliente in riferimento al calo.</p>
+        <textarea id="kComplaint" rows="5" maxlength="10000" aria-describedby="kComplaintHint kComplaintError"></textarea>
+        <div id="kComplaintError" class="error"></div>
+      </div>
+    </div>
+
+    <div id="oppFields" hidden>
+      <div class="card" data-field="oProduct">
+        <label for="oProduct">Che prodotto vorrebbe lanciare il cliente? <span class="req" aria-hidden="true">*</span></label>
+        <textarea id="oProduct" rows="3" maxlength="10000" aria-describedby="oProductError"></textarea>
+        <div id="oProductError" class="error"></div>
+      </div>
+      <fieldset class="card" data-field="oMarkets" aria-describedby="oMarketsError">
+        <legend>Marketplace di destinazione <span class="req" aria-hidden="true">*</span></legend>
+        <div class="checks">
+            <label class="check"><input type="checkbox" name="oMarkets" value="IT">Italia</label>
+            <label class="check"><input type="checkbox" name="oMarkets" value="FR">Francia</label>
+            <label class="check"><input type="checkbox" name="oMarkets" value="ES">Spagna</label>
+            <label class="check"><input type="checkbox" name="oMarkets" value="DE">Germania</label>
+            <label class="check"><input type="checkbox" name="oMarkets" value="UK">UK</label>
+            <label class="check"><input type="checkbox" name="oMarkets" value="US">US</label>
+        </div>
+        <div id="oMarketsError" class="error"></div>
+      </fieldset>
+      <div class="card" data-field="oPrice">
+        <label for="oPrice">Con che prezzo di vendita vorrebbe uscire? <span class="req" aria-hidden="true">*</span></label>
+        <input id="oPrice" maxlength="200" autocomplete="off" placeholder="es. 19,90 € oppure 15–20 €" aria-describedby="oPriceError">
+        <div id="oPriceError" class="error"></div>
+      </div>
+      <div class="card" data-field="oFormat">
+        <label for="oFormat">Che formato / quantità / materiale? <span class="req" aria-hidden="true">*</span></label>
+        <textarea id="oFormat" rows="3" maxlength="10000" aria-describedby="oFormatError"></textarea>
+        <div id="oFormatError" class="error"></div>
       </div>
     </div>
 

@@ -34,9 +34,26 @@ const CAT_FIELDS = {
     ['driveLink', 'Link Drive della cartella con il materiale'],
   ],
 };
-const isCatalog = (data) => data.type === 'catalogo';
-const fieldsFor = (data) => (isCatalog(data) ? [['operation', 'Operazione'], ...(CAT_FIELDS[data.operation] || [])] : PERF_FIELDS);
-const kind = (data) => (isCatalog(data) ? 'CATALOGO' : 'PERFORMANCE');
+const CALI_FIELDS = [
+  ['destMarketplaces', 'Marketplace di destinazione'],
+  ['scope', 'Calo di'],
+  ['asin', 'ASIN in calo'],
+  ['complaint', 'Di cosa si lamenta il cliente?'],
+];
+const OPP_FIELDS = [
+  ['product', 'Che prodotto vorrebbe lanciare il cliente?'],
+  ['destMarketplaces', 'Marketplace di destinazione'],
+  ['price', 'Prezzo di vendita con cui vorrebbe uscire'],
+  ['format', 'Formato / Quantità / Materiale'],
+];
+const KINDS = { performance: 'PERFORMANCE', catalogo: 'CATALOGO', cali: 'CALI STRATEGICI', opportunita: 'ANALISI OPPORTUNITÀ' };
+function fieldsFor(data) {
+  if (data.type === 'catalogo') return [['operation', 'Operazione'], ...(CAT_FIELDS[data.operation] || [])];
+  if (data.type === 'cali') return CALI_FIELDS.filter(([key]) => key !== 'asin' || data.scope === 'Uno o più ASIN');
+  if (data.type === 'opportunita') return OPP_FIELDS;
+  return PERF_FIELDS;
+}
+const kind = (data) => KINDS[data.type] || 'PERFORMANCE';
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (text, kind = '') => {
