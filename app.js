@@ -16,16 +16,24 @@ const LABELS = {
 // Brief CATALOGO: chiave API → id dell'elemento nel form
 const OP_NODE = 'Variazione del nodo';
 const OP_PARENT = 'Creazione di un parent';
+const OP_UPLOAD = 'Caricamenti GRAFICI';
 const CAT_DOM = {
   operation: 'cOperation', asin: 'cAsin', marketplace: 'cMarketplace', currentNode: 'cCurrentNode', newNode: 'cNewNode',
   parentBrand: 'cParentBrand', parentName: 'cParentName', parentAsins: 'cParentAsins',
+  uploadTypes: 'cUTypes', destMarketplaces: 'cUMarkets', driveLink: 'cUDrive',
 };
 const CAT_LABELS = {
   operation: 'Operazione', asin: 'ASIN su cui operare', marketplace: 'Marketplace di riferimento',
   currentNode: 'Attuale nodo di navigazione', currentNodeId: 'Attuale nodo di navigazione', newNode: 'Nuovo nodo di navigazione',
   newNodeId: 'Nuovo nodo di navigazione', parentBrand: 'Marchio del parent', parentName: 'Nome parent', parentAsins: 'ASINs da agganciare',
+  uploadTypes: 'Tipo di caricamento', destMarketplaces: 'Marketplace di destinazione', driveLink: 'Link Drive',
 };
-const CAT_KEYS = ['operation', 'asin', 'marketplace', 'currentNode', 'currentNodeId', 'newNode', 'newNodeId', 'parentBrand', 'parentName', 'parentAsins'];
+const CAT_KEYS = ['operation', 'asin', 'marketplace', 'currentNode', 'currentNodeId', 'newNode', 'newNodeId', 'parentBrand', 'parentName', 'parentAsins', 'uploadTypes', 'destMarketplaces', 'driveLink'];
+const CAT_MULTI = ['uploadTypes', 'destMarketplaces'];
+const checked = (name) => [...document.querySelectorAll(`input[name="${name}"]:checked`)].map((b) => b.value);
+const setChecked = (name, values) => {
+  for (const box of document.querySelectorAll(`input[name="${name}"]`)) box.checked = values.includes(box.value);
+};
 
 const $ = (id) => document.getElementById(id);
 const markets = () => [...document.querySelectorAll('input[name=marketplace]')];
@@ -185,7 +193,7 @@ function snapshot(brief) {
 }
 
 function catalogSnapshot(catalog = {}) {
-  return Object.fromEntries(CAT_KEYS.map((k) => [k, catalog[k] || '']));
+  return Object.fromEntries(CAT_KEYS.map((k) => [k, CAT_MULTI.includes(k) ? [...(catalog[k] || [])] : catalog[k] || '']));
 }
 
 function fillForm(brief) {
@@ -219,6 +227,9 @@ function fillCatalog(c) {
   $('cParentBrand').value = c.parentBrand;
   $('cParentName').value = c.parentName;
   $('cParentAsins').value = c.parentAsins;
+  setChecked('cUTypes', c.uploadTypes);
+  setChecked('cUMarkets', c.destMarketplaces);
+  $('cUDrive').value = c.driveLink;
   pickers.currentNode.set(c.currentNodeId ? { id: c.currentNodeId, path: c.currentNode } : null);
   pickers.newNode.set(c.newNodeId ? { id: c.newNodeId, path: c.newNode } : null);
   showOperation(c.operation);
@@ -226,8 +237,10 @@ function fillCatalog(c) {
 }
 
 function showOperation(op) {
+  $('asinField').hidden = op !== OP_NODE && op !== OP_UPLOAD;
   $('nodeFields').hidden = op !== OP_NODE;
   $('parentFields').hidden = op !== OP_PARENT;
+  $('uploadFields').hidden = op !== OP_UPLOAD;
 }
 
 async function loadTree(marketplace) {
@@ -260,6 +273,11 @@ function collectCatalog() {
     values.parentBrand = $('cParentBrand').value.trim();
     values.parentName = $('cParentName').value.trim();
     values.parentAsins = parseAsins($('cParentAsins').value).join('\n');
+  } else if (op === OP_UPLOAD) {
+    values.asin = parseAsins($('cAsin').value).join('\n');
+    values.uploadTypes = checked('cUTypes');
+    values.destMarketplaces = checked('cUMarkets');
+    values.driveLink = $('cUDrive').value.trim();
   }
   return values;
 }
@@ -285,6 +303,13 @@ function validateCatalog(v) {
     if (!v.parentBrand) errors.parentBrand = 'Campo obbligatorio.';
     if (!v.parentName) errors.parentName = 'Campo obbligatorio.';
     errors.parentAsins = asinError($('cParentAsins').value);
+  }
+  if (v.operation === OP_UPLOAD) {
+    errors.asin = asinError($('cAsin').value);
+    if (!v.uploadTypes.length) errors.uploadTypes = 'Scegli almeno un tipo di caricamento.';
+    if (!v.destMarketplaces.length) errors.destMarketplaces = 'Scegli almeno un marketplace di destinazione.';
+    if (!v.driveLink) errors.driveLink = 'Incolla il link della cartella Drive.';
+    else if (!/^https?:\/\/\S+\.\S+/i.test(v.driveLink)) errors.driveLink = 'Inserisci un link valido (es. https://drive.google.com/drive/folders/…).';
   }
   const keys = Object.keys(errors).filter((k) => errors[k]);
   for (const k of keys) showError(CAT_DOM[k], errors[k]);
@@ -490,7 +515,7 @@ $('cMarketplace').addEventListener('change', () => {
 $('form').addEventListener('input', (e) => {
   const t = e.target;
   if (t.closest('.picker')) return; // la ricerca nel selettore non è una modifica del brief
-  markDirty(t.name === 'marketplace' ? 'marketplace' : t.name === 'cOperation' ? 'cOperation' : t.id);
+  markDirty(t.type === 'checkbox' || t.type === 'radio' ? t.name : t.id);
 });
 $('form').addEventListener('submit', save);
 

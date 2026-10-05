@@ -59,6 +59,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .actions .status{margin:0 auto 0 0;flex:1 1 220px}
 .actions .status:empty,#typeStatus:empty{display:none}
 .types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.types.three{grid-template-columns:repeat(3,minmax(0,1fr))}
 .type{display:flex;gap:10px;align-items:flex-start;margin:0;padding:12px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-weight:500;font-size:15px}
 .type:has(input:checked){border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
 .type input{width:18px;height:18px;margin:2px 0 0;flex:none;accent-color:var(--blue)}
@@ -74,7 +75,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .options .trail{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 [hidden]{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-@media (max-width:560px){.wrap{padding:16px 16px 40px}h1{font-size:25px}.types{grid-template-columns:1fr}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.row.stack{flex-direction:column;align-items:stretch}.taskhead{flex-direction:column;gap:6px}.actions button,.actions a.button{flex:1 1 auto;padding:0 12px}#save{flex-basis:100%}}
+@media (max-width:560px){.wrap{padding:16px 16px 40px}h1{font-size:25px}.types,.types.three{grid-template-columns:1fr}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.row.stack{flex-direction:column;align-items:stretch}.taskhead{flex-direction:column;gap:6px}.actions button,.actions a.button{flex:1 1 auto;padding:0 12px}#save{flex-basis:100%}}
 </style>
 </head>
 <body>
@@ -189,20 +190,24 @@ button:disabled{opacity:.55;cursor:not-allowed}
     <div id="catalogFields" hidden>
       <fieldset class="card" data-field="cOperation" aria-describedby="cOperationError">
         <legend>Operazione <span class="req" aria-hidden="true">*</span></legend>
-        <div class="types">
+        <div class="types three">
           <label class="type"><input type="radio" name="cOperation" value="Variazione del nodo"><span><strong>Variazione del nodo</strong><small>Spostare uno o più ASIN in un altro nodo di navigazione.</small></span></label>
           <label class="type"><input type="radio" name="cOperation" value="Creazione di un parent"><span><strong>Creazione di un parent</strong><small>Creare un parent e agganciare gli ASIN figli.</small></span></label>
+          <label class="type"><input type="radio" name="cOperation" value="Caricamenti GRAFICI"><span><strong>Caricamenti GRAFICI</strong><small>Infografiche, A+ e Brand Story da caricare.</small></span></label>
         </div>
         <div id="cOperationError" class="error"></div>
       </fieldset>
 
-      <div id="nodeFields" hidden>
+      <div id="asinField" hidden>
         <div class="card" data-field="cAsin">
           <label for="cAsin">ASIN su cui operare <span class="req" aria-hidden="true">*</span></label>
           <p id="cAsinHint" class="hint">Uno o più ASIN, separati da spazio, virgola o a capo.</p>
           <textarea id="cAsin" rows="3" maxlength="3000" spellcheck="false" autocapitalize="characters" placeholder="B0FZTK766T&#10;B0FZTL27MW" aria-describedby="cAsinHint cAsinError"></textarea>
           <div id="cAsinError" class="error"></div>
         </div>
+      </div>
+
+      <div id="nodeFields" hidden>
         <div class="card" data-field="cMarketplace">
           <label for="cMarketplace">Marketplace di riferimento <span class="req" aria-hidden="true">*</span></label>
           <p id="cMarketplaceHint" class="hint">Determina l'albero dei nodi di navigazione in cui cercare.</p>
@@ -252,6 +257,36 @@ button:disabled{opacity:.55;cursor:not-allowed}
           <p id="cParentAsinsHint" class="hint">Gli ASIN figli, separati da spazio, virgola o a capo.</p>
           <textarea id="cParentAsins" rows="4" maxlength="3000" spellcheck="false" autocapitalize="characters" placeholder="B0FZTL27MW&#10;B0FZTM9VK8&#10;B0FZTLMTY9" aria-describedby="cParentAsinsHint cParentAsinsError"></textarea>
           <div id="cParentAsinsError" class="error"></div>
+        </div>
+      </div>
+      <div id="uploadFields" hidden>
+        <fieldset class="card" data-field="cUTypes" aria-describedby="cUTypesHint cUTypesError">
+          <legend>Tipo di caricamento <span class="req" aria-hidden="true">*</span></legend>
+          <p id="cUTypesHint" class="hint">Uno o più.</p>
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="cUTypes" value="Caricamento Infografiche">Infografiche</label>
+            <label class="check"><input type="checkbox" name="cUTypes" value="Caricamento A+">A+</label>
+            <label class="check"><input type="checkbox" name="cUTypes" value="Caricamento Brand Story">Brand Story</label>
+          </div>
+          <div id="cUTypesError" class="error"></div>
+        </fieldset>
+        <fieldset class="card" data-field="cUMarkets" aria-describedby="cUMarketsError">
+          <legend>Marketplace di destinazione <span class="req" aria-hidden="true">*</span></legend>
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="cUMarkets" value="IT">Italia</label>
+            <label class="check"><input type="checkbox" name="cUMarkets" value="FR">Francia</label>
+            <label class="check"><input type="checkbox" name="cUMarkets" value="ES">Spagna</label>
+            <label class="check"><input type="checkbox" name="cUMarkets" value="DE">Germania</label>
+            <label class="check"><input type="checkbox" name="cUMarkets" value="UK">UK</label>
+            <label class="check"><input type="checkbox" name="cUMarkets" value="US">US</label>
+          </div>
+          <div id="cUMarketsError" class="error"></div>
+        </fieldset>
+        <div class="card" data-field="cUDrive">
+          <label for="cUDrive">Link DRIVE della cartella con il materiale da caricare <span class="req" aria-hidden="true">*</span></label>
+          <p id="cUDriveHint" class="hint">Controlla che la cartella sia condivisa con chi deve fare il caricamento.</p>
+          <input id="cUDrive" type="url" inputmode="url" maxlength="2000" autocomplete="off" spellcheck="false" placeholder="https://drive.google.com/drive/folders/…" aria-describedby="cUDriveHint cUDriveError">
+          <div id="cUDriveError" class="error"></div>
         </div>
       </div>
     </div>

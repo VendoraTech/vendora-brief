@@ -27,6 +27,12 @@ const CAT_FIELDS = {
     ['parentName', 'Nome parent'],
     ['parentAsins', 'ASINs da agganciare'],
   ],
+  'Caricamenti GRAFICI': [
+    ['asin', 'ASIN su cui operare'],
+    ['uploadTypes', 'Tipo di caricamento'],
+    ['destMarketplaces', 'Marketplace di destinazione'],
+    ['driveLink', 'Link Drive della cartella con il materiale'],
+  ],
 };
 const isCatalog = (data) => data.type === 'catalogo';
 const fieldsFor = (data) => (isCatalog(data) ? [['operation', 'Operazione'], ...(CAT_FIELDS[data.operation] || [])] : PERF_FIELDS);
@@ -73,7 +79,8 @@ async function loadData() {
 
 const marketText = (codes = []) => [].concat(codes).filter(Boolean).map((c) => `${MARKET_NAMES[c] || c} (${c})`).join(', ');
 function valueOf(data, key) {
-  if (key === 'marketplace') return marketText(data.marketplace);
+  if (key === 'marketplace' || key === 'destMarketplaces') return marketText(data[key]);
+  if (Array.isArray(data[key])) return data[key].join(', ');
   const value = String(data[key] || '').trim();
   // Per chi esegue la variazione serve anche l'ID del nodo, che nel form resta nascosto.
   if ((key === 'currentNode' || key === 'newNode') && value && data[`${key}Id`]) return `${value}\nID nodo: ${data[`${key}Id`]}`;
@@ -96,7 +103,10 @@ function render(data) {
     const title = el('h2', {}, label);
     if (note) title.append(' ', el('span', { className: 'note' }, `(${note})`));
     const section = el('section', { className: 'field' });
-    section.append(title, el('p', { className: value ? '' : 'empty' }, value || '—'));
+    const isLink = key === 'driveLink' && /^https?:\/\//i.test(value);
+    const body = el('p', { className: value ? '' : 'empty' }, isLink ? '' : value || '—');
+    if (isLink) body.append(el('a', { href: value, target: '_blank', rel: 'noopener' }, value));
+    section.append(title, body);
     $('fields').append(section);
   }
   document.title = ['Brief', kind(data), data.code, data.client].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-');
