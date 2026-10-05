@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://pvuixvdiladlxzgkwszq.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://pvuixvdiladlxzgkwszq.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="strict-origin">
 <meta name="robots" content="noindex">
-<title>Vendora Brief prodotto</title>
+<title>Vendora Brief</title>
 <link rel="icon" href="data:,">
 <style>
 :root{color-scheme:light dark;--text:#2c2c2b;--muted:#73726e;--border:#e3e2df;--soft:#f7f7f5;--bg:#fff;--blue:#2383e2;--blue-soft:rgba(35,131,226,.12);--red:#d44c47;--green:#2e7d55;--amber:#a36a00}
@@ -23,6 +23,9 @@ h1{font-size:30px;line-height:1.2;letter-spacing:-.02em;margin:0 0 6px}
 .card.invalid{border-color:var(--red)}
 label,legend{display:block;font-weight:600;font-size:16px;margin-bottom:6px;padding:0}
 fieldset{border:0;margin:0;padding:0;min-width:0}
+fieldset>legend{float:left;width:100%}
+fieldset>legend+*{clear:both}
+fieldset.card{padding:16px}
 .req{color:var(--red)}
 .hint{color:var(--muted);font-size:13.5px;margin:-2px 0 8px}
 .note{display:inline-block;font-size:12.5px;font-weight:600;color:var(--amber);border:1px solid currentColor;border-radius:5px;padding:0 6px;margin:0 0 8px}
@@ -54,16 +57,30 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .badge:empty{display:none}
 .actions{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--border);padding:12px 0 4px;margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
 .actions .status{margin:0 auto 0 0;flex:1 1 220px}
-.actions .status:empty{display:none}
+.actions .status:empty,#typeStatus:empty{display:none}
+.types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.type{display:flex;gap:10px;align-items:flex-start;margin:0;padding:12px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-weight:500;font-size:15px}
+.type:has(input:checked){border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.type input{width:18px;height:18px;margin:2px 0 0;flex:none;accent-color:var(--blue)}
+.type strong{display:block;letter-spacing:.02em}
+.type small{display:block;color:var(--muted);font-size:13px;font-weight:400;line-height:1.4}
+.picked{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:var(--soft)}
+.picked-path{overflow-wrap:anywhere;min-width:0}
+.options{list-style:none;margin:6px 0 0;padding:4px;border:1px solid var(--border);border-radius:8px;max-height:300px;overflow:auto;background:var(--bg)}
+.options li{padding:8px 10px;border-radius:6px;cursor:pointer}
+.options li[aria-selected=true]{background:var(--blue-soft)}
+.options li.empty{cursor:default;color:var(--muted)}
+.options .leaf{display:block;font-weight:600}
+.options .trail{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 [hidden]{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-@media (max-width:560px){.wrap{padding:16px 16px 40px}h1{font-size:25px}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.row.stack{flex-direction:column;align-items:stretch}.taskhead{flex-direction:column;gap:6px}.actions button,.actions a.button{flex:1 1 auto;padding:0 12px}#save{flex-basis:100%}}
+@media (max-width:560px){.wrap{padding:16px 16px 40px}h1{font-size:25px}.types{grid-template-columns:1fr}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.row.stack{flex-direction:column;align-items:stretch}.taskhead{flex-direction:column;gap:6px}.actions button,.actions a.button{flex:1 1 auto;padding:0 12px}#save{flex-basis:100%}}
 </style>
 </head>
 <body>
 <main class="wrap">
-  <h1>Brief prodotto</h1>
-  <p class="sub">Compila il brief e salvalo nella task Notion: le risposte finiscono nelle proprietà «Brief | …» e sono subito visibili al team.</p>
+  <h1>Brief</h1>
+  <p class="sub">Compila il brief e salvalo nella task Notion: le risposte finiscono nelle proprietà della task e sono subito visibili al team.</p>
 
   <form id="keyForm" class="card" novalidate>
     <label for="key">Chiave team</label>
@@ -74,6 +91,15 @@ button:disabled{opacity:.55;cursor:not-allowed}
     <p id="keyHint" class="hint" style="margin:8px 0 0">Resta salvata solo in questa scheda del browser e viene cancellata alla chiusura.</p>
     <div id="authStatus" class="status" role="status" aria-live="polite"></div>
   </form>
+
+  <fieldset id="typeBox" class="card" hidden>
+    <legend>Tipo di brief <span class="req" aria-hidden="true">*</span></legend>
+    <div class="types">
+      <label class="type"><input type="radio" name="briefType" value="performance"><span><strong>PERFORMANCE</strong><small>Brief prodotto: brand, marketplace, specifiche, punti di forza, competitor.</small></span></label>
+      <label class="type"><input type="radio" name="briefType" value="catalogo"><span><strong>CATALOGO</strong><small>Operazioni tecniche: variazione del nodo, creazione di un parent.</small></span></label>
+    </div>
+    <div id="typeStatus" class="status" role="status" aria-live="polite"></div>
+  </fieldset>
 
   <section id="taskBox" class="card" hidden aria-labelledby="taskLabel">
     <div class="row" style="justify-content:space-between">
@@ -89,8 +115,10 @@ button:disabled{opacity:.55;cursor:not-allowed}
   <form id="form" novalidate hidden aria-labelledby="taskTitle">
     <div class="taskhead">
       <p id="taskTitle" class="tasktitle"></p>
-      <span id="completeness" class="badge" title="Proprietà Notion «Brief | Completezza»"></span>
+      <span id="completeness" class="badge" title="Completezza calcolata da Notion"></span>
     </div>
+
+    <div id="perfFields" hidden>
 
     <div class="card" data-field="brand">
       <label for="brand">Brand name <span class="req" aria-hidden="true">*</span></label>
@@ -156,6 +184,78 @@ button:disabled{opacity:.55;cursor:not-allowed}
       <div id="strategyError" class="error"></div>
     </div>
 
+    </div>
+
+    <div id="catalogFields" hidden>
+      <fieldset class="card" data-field="cOperation" aria-describedby="cOperationError">
+        <legend>Operazione <span class="req" aria-hidden="true">*</span></legend>
+        <div class="types">
+          <label class="type"><input type="radio" name="cOperation" value="Variazione del nodo"><span><strong>Variazione del nodo</strong><small>Spostare uno o più ASIN in un altro nodo di navigazione.</small></span></label>
+          <label class="type"><input type="radio" name="cOperation" value="Creazione di un parent"><span><strong>Creazione di un parent</strong><small>Creare un parent e agganciare gli ASIN figli.</small></span></label>
+        </div>
+        <div id="cOperationError" class="error"></div>
+      </fieldset>
+
+      <div id="nodeFields" hidden>
+        <div class="card" data-field="cAsin">
+          <label for="cAsin">ASIN su cui operare <span class="req" aria-hidden="true">*</span></label>
+          <p id="cAsinHint" class="hint">Uno o più ASIN, separati da spazio, virgola o a capo.</p>
+          <textarea id="cAsin" rows="3" maxlength="3000" spellcheck="false" autocapitalize="characters" placeholder="B0FZTK766T&#10;B0FZTL27MW" aria-describedby="cAsinHint cAsinError"></textarea>
+          <div id="cAsinError" class="error"></div>
+        </div>
+        <div class="card" data-field="cMarketplace">
+          <label for="cMarketplace">Marketplace di riferimento <span class="req" aria-hidden="true">*</span></label>
+          <p id="cMarketplaceHint" class="hint">Determina l'albero dei nodi di navigazione in cui cercare.</p>
+          <select id="cMarketplace" aria-describedby="cMarketplaceHint cMarketplaceError">
+            <option value="">Seleziona il marketplace…</option>
+            <option value="IT">Italia (amazon.it)</option>
+            <option value="FR">Francia (amazon.fr)</option>
+            <option value="ES">Spagna (amazon.es)</option>
+            <option value="DE">Germania (amazon.de)</option>
+          </select>
+          <div id="cMarketplaceError" class="error"></div>
+        </div>
+        <div class="card" data-field="cCurrentNode">
+          <label for="cCurrentNodeInput">Attuale nodo di navigazione <span class="req" aria-hidden="true">*</span></label>
+          <div class="picker" id="cCurrentNodePicker">
+            <div class="picked" hidden><span class="picked-path"></span><button type="button" class="link change">Cambia</button></div>
+            <input id="cCurrentNodeInput" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cCurrentNodeList" autocomplete="off" disabled placeholder="Scegli prima il marketplace" aria-describedby="cCurrentNodeError">
+            <ul id="cCurrentNodeList" role="listbox" class="options" aria-label="Nodi trovati" hidden></ul>
+          </div>
+          <div id="cCurrentNodeError" class="error"></div>
+        </div>
+        <div class="card" data-field="cNewNode">
+          <label for="cNewNodeInput">Nuovo nodo di navigazione <span class="req" aria-hidden="true">*</span></label>
+          <div class="picker" id="cNewNodePicker">
+            <div class="picked" hidden><span class="picked-path"></span><button type="button" class="link change">Cambia</button></div>
+            <input id="cNewNodeInput" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cNewNodeList" autocomplete="off" disabled placeholder="Scegli prima il marketplace" aria-describedby="cNewNodeHint cNewNodeError">
+            <ul id="cNewNodeList" role="listbox" class="options" aria-label="Nodi trovati" hidden></ul>
+          </div>
+          <p id="cNewNodeHint" class="hint" style="margin:8px 0 0">Elenco nodi Amazon EU dai file «browse tree mappings» (aggiornati al 2017).</p>
+          <div id="cNewNodeError" class="error"></div>
+        </div>
+      </div>
+
+      <div id="parentFields" hidden>
+        <div class="card" data-field="cParentBrand">
+          <label for="cParentBrand">Marchio del parent <span class="req" aria-hidden="true">*</span></label>
+          <input id="cParentBrand" maxlength="200" autocomplete="off" aria-describedby="cParentBrandError">
+          <div id="cParentBrandError" class="error"></div>
+        </div>
+        <div class="card" data-field="cParentName">
+          <label for="cParentName">Nome parent <span class="req" aria-hidden="true">*</span></label>
+          <input id="cParentName" maxlength="500" autocomplete="off" aria-describedby="cParentNameError">
+          <div id="cParentNameError" class="error"></div>
+        </div>
+        <div class="card" data-field="cParentAsins">
+          <label for="cParentAsins">ASINs da agganciare <span class="req" aria-hidden="true">*</span></label>
+          <p id="cParentAsinsHint" class="hint">Gli ASIN figli, separati da spazio, virgola o a capo.</p>
+          <textarea id="cParentAsins" rows="4" maxlength="3000" spellcheck="false" autocapitalize="characters" placeholder="B0FZTL27MW&#10;B0FZTM9VK8&#10;B0FZTLMTY9" aria-describedby="cParentAsinsHint cParentAsinsError"></textarea>
+          <div id="cParentAsinsError" class="error"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="actions">
       <div id="formStatus" class="status" role="status" aria-live="polite"></div>
       <a id="export" class="button" href="export.html" target="_blank" rel="noopener" aria-disabled="true" title="Apre il brief salvato in una pagina pronta da salvare in PDF o copiare come testo">Esporta</a>
@@ -164,6 +264,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
     </div>
   </form>
 </main>
+<script src="node-picker.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

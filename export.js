@@ -3,7 +3,7 @@
 // Pagina di export: riceve il brief salvato nel frammento dell'URL (vedi prepareExport in app.js),
 // lo impagina per la stampa in PDF e lo offre come testo. Nessuna chiamata di rete.
 const STORAGE = 'vendoraBriefExport';
-const FIELDS = [
+const PERF_FIELDS = [
   ['brand', 'Brand name'],
   ['marketplace', 'Marketplace'],
   ['variants', 'Formato / Taglia / Colore / Quantità'],
@@ -15,6 +15,22 @@ const FIELDS = [
   ['strategy', 'Consigli strategici su keyword / elementi grafici / aggettivi', 'a cura dello strategico'],
 ];
 const MARKET_NAMES = { IT: 'Italia', FR: 'Francia', ES: 'Spagna', DE: 'Germania', UK: 'UK', US: 'US' };
+const CAT_FIELDS = {
+  'Variazione del nodo': [
+    ['asin', 'ASIN su cui operare'],
+    ['marketplace', 'Marketplace di riferimento'],
+    ['currentNode', 'Attuale nodo di navigazione'],
+    ['newNode', 'Nuovo nodo di navigazione'],
+  ],
+  'Creazione di un parent': [
+    ['parentBrand', 'Marchio del parent'],
+    ['parentName', 'Nome parent'],
+    ['parentAsins', 'ASINs da agganciare'],
+  ],
+};
+const isCatalog = (data) => data.type === 'catalogo';
+const fieldsFor = (data) => (isCatalog(data) ? [['operation', 'Operazione'], ...(CAT_FIELDS[data.operation] || [])] : PERF_FIELDS);
+const kind = (data) => (isCatalog(data) ? 'CATALOGO' : 'PERFORMANCE');
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (text, kind = '') => {
@@ -55,12 +71,19 @@ async function loadData() {
   return { data: null, fresh: false };
 }
 
-const marketText = (codes = []) => codes.map((c) => `${MARKET_NAMES[c] || c} (${c})`).join(', ');
-const valueOf = (data, key) => (key === 'marketplace' ? marketText(data.marketplace) : String(data[key] || '').trim());
+const marketText = (codes = []) => [].concat(codes).filter(Boolean).map((c) => `${MARKET_NAMES[c] || c} (${c})`).join(', ');
+function valueOf(data, key) {
+  if (key === 'marketplace') return marketText(data.marketplace);
+  const value = String(data[key] || '').trim();
+  // Per chi esegue la variazione serve anche l'ID del nodo, che nel form resta nascosto.
+  if ((key === 'currentNode' || key === 'newNode') && value && data[`${key}Id`]) return `${value}\nID nodo: ${data[`${key}Id`]}`;
+  return value;
+}
 const exportedAt = new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
 const notionUrl = (data) => (data.pageId ? `https://www.notion.so/${String(data.pageId).replace(/-/g, '')}` : '');
 
 function render(data) {
+  $('kicker').textContent = `Brief ${kind(data)}`;
   $('title').textContent = data.title || 'Task senza titolo';
   const meta = $('meta');
   if (data.code) meta.append(el('strong', {}, data.code));
@@ -68,7 +91,7 @@ function render(data) {
   if (data.completeness) meta.append(el('span', {}, data.completeness));
   meta.append(el('span', {}, `Esportato il ${exportedAt}`));
   if (notionUrl(data)) meta.append(el('a', { href: notionUrl(data), target: '_blank', rel: 'noopener' }, 'Apri la task in Notion'));
-  for (const [key, label, note] of FIELDS) {
+  for (const [key, label, note] of fieldsFor(data)) {
     const value = valueOf(data, key);
     const title = el('h2', {}, label);
     if (note) title.append(' ', el('span', { className: 'note' }, `(${note})`));
@@ -76,16 +99,16 @@ function render(data) {
     section.append(title, el('p', { className: value ? '' : 'empty' }, value || '—'));
     $('fields').append(section);
   }
-  document.title = ['Brief', data.code, data.client].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-');
+  document.title = ['Brief', kind(data), data.code, data.client].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-');
   $('sheet').hidden = false;
 }
 
 function asText(data) {
-  const lines = ['BRIEF PRODOTTO', [data.code, data.client].filter(Boolean).join(' · '), data.title || ''];
+  const lines = [`BRIEF ${kind(data)}`, [data.code, data.client].filter(Boolean).join(' · '), data.title || ''];
   if (data.completeness) lines.push(`Completezza: ${data.completeness}`);
   if (notionUrl(data)) lines.push(`Task Notion: ${notionUrl(data)}`);
   lines.push(`Esportato il ${exportedAt}`);
-  for (const [key, label] of FIELDS) lines.push('', label.toUpperCase(), valueOf(data, key) || '—');
+  for (const [key, label] of fieldsFor(data)) lines.push('', label.toUpperCase(), valueOf(data, key) || '—');
   return `${lines.filter((l, i) => l || i > 2).join('\n')}\n`;
 }
 
