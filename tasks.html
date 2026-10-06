@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://pvuixvdiladlxzgkwszq.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin">
+<meta name="robots" content="noindex">
+<title>Vendora Processi</title>
+<link rel="icon" href="data:,">
+<style>
+:root{color-scheme:light dark;--text:#2c2c2b;--muted:#73726e;--border:#e3e2df;--soft:#f7f7f5;--bg:#fff;--blue:#2383e2;--blue-soft:rgba(35,131,226,.12);--red:#d44c47;--green:#2e7d55;--amber:#a36a00}
+@media (prefers-color-scheme:dark){:root{--text:#e6e6e4;--muted:#9b9a97;--border:#3a3a38;--soft:#252525;--bg:#191919;--blue:#529cca;--blue-soft:rgba(82,156,202,.18);--red:#e57373;--green:#6cc592;--amber:#e0b050}}
+*{box-sizing:border-box}
+html{overflow-x:hidden}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:15px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+.wrap{max-width:760px;padding:8px 16px 24px}
+[hidden]{display:none!important}
+.buttons{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);font:inherit;font-size:14px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;box-shadow:0 1px 2px rgba(15,15,15,.06)}
+.pill:hover{background:var(--soft)}
+.pill[aria-expanded=true]{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.pill:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.panel{margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:16px}
+.panelhead{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+h2{font-size:17px;margin:0}
+.desc{color:var(--muted);font-size:13.5px;margin:2px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.span2{grid-column:1/-1}
+label{display:block;font-weight:600;font-size:14.5px;margin-bottom:5px}
+.req{color:var(--red)}
+.hint{color:var(--muted);font-size:13px;margin:5px 0 0}
+.error{color:var(--red);font-size:13px;margin-top:5px}
+.error:empty{display:none}
+input,select,textarea{display:block;width:100%;max-width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px 11px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:var(--blue)}
+[aria-invalid=true]{border-color:var(--red)}
+textarea{min-height:64px;resize:vertical}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{min-width:0}
+.grow{flex:1}
+button{font:inherit;font-weight:600;border:1px solid transparent;border-radius:7px;min-height:42px;padding:0 16px;cursor:pointer;background:var(--blue);color:#fff;white-space:nowrap}
+button.secondary{background:transparent;color:var(--text);border-color:var(--border)}
+button.link{background:none;border:0;color:var(--muted);min-height:32px;padding:0 4px;text-decoration:underline;font-weight:500}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button:disabled{opacity:.55;cursor:not-allowed}
+details{margin-top:14px;border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:var(--soft)}
+summary{cursor:pointer;font-weight:600;font-size:14px}
+.preview{margin:8px 0 2px;padding-left:22px;font-size:13.5px}
+.preview li{margin:3px 0;overflow-wrap:anywhere}
+.macro{margin:8px 0 0;font-size:13.5px;font-weight:600;overflow-wrap:anywhere}
+.meta{color:var(--muted)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-top:14px}
+.status{color:var(--muted);font-size:14px;margin:0 auto 0 0;flex:1 1 220px}
+.status:empty{display:none}
+.status.ok{color:var(--green)}.status.err{color:var(--red)}.status.warn{color:var(--amber)}
+.status a{color:inherit;font-weight:600}
+.results{list-style:none;margin:10px 0 0;padding:0;font-size:14px}
+.results li{padding:6px 0;border-top:1px solid var(--border);overflow-wrap:anywhere}
+.results li:first-child{border-top:0;font-weight:600}
+.results a{color:var(--blue);text-decoration:none}
+.results a:hover{text-decoration:underline}
+.code{display:inline-block;min-width:76px;color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:560px){.grid{grid-template-columns:1fr}.actions button{flex:1 1 auto}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div id="buttons" class="buttons" role="group" aria-label="Processi da avviare"></div>
+
+  <section id="panel" class="panel" hidden aria-labelledby="panelTitle">
+    <div class="panelhead">
+      <h2 id="panelTitle"></h2>
+      <button id="close" type="button" class="link">Chiudi</button>
+    </div>
+    <p id="panelDesc" class="desc"></p>
+
+    <form id="keyForm" novalidate hidden>
+      <label for="key">Chiave team</label>
+      <div class="row">
+        <input id="key" class="grow" type="password" autocomplete="current-password" placeholder="Chiave di accesso del team" aria-describedby="authStatus">
+        <button id="keyBtn" type="submit">Accedi</button>
+      </div>
+      <p id="authStatus" class="status" role="status" aria-live="polite" style="margin-top:8px"></p>
+    </form>
+
+    <form id="genForm" novalidate hidden>
+      <div class="grid">
+        <div>
+          <label for="client">Cliente <span class="req" aria-hidden="true">*</span></label>
+          <select id="client" required aria-describedby="clientError"><option value="">Scegli il cliente…</option></select>
+          <div id="clientError" class="error"></div>
+        </div>
+        <div>
+          <label for="name">Nome cliente nel titolo <span class="req" aria-hidden="true">*</span></label>
+          <input id="name" required maxlength="60" autocomplete="off" aria-describedby="nameHint nameError">
+          <p id="nameHint" class="hint">Come appare nei titoli, es. FERRUCCI.</p>
+          <div id="nameError" class="error"></div>
+        </div>
+        <div>
+          <label for="marketplace">Nazione di riferimento <span class="req" aria-hidden="true">*</span></label>
+          <select id="marketplace" required aria-describedby="marketplaceError"><option value="">Scegli la nazione…</option></select>
+          <div id="marketplaceError" class="error"></div>
+        </div>
+        <div>
+          <label for="asins">ASIN <span class="req" aria-hidden="true">*</span></label>
+          <textarea id="asins" required rows="2" spellcheck="false" autocomplete="off" placeholder="B0FZTK766T, B0FZTL27MW" aria-describedby="asinsHint asinsError"></textarea>
+          <p id="asinsHint" class="hint">Separati da spazio, virgola o a capo (max 30).</p>
+          <div id="asinsError" class="error"></div>
+        </div>
+      </div>
+      <details id="previewBox">
+        <summary id="previewTitle">Anteprima delle task</summary>
+        <p id="previewMacro" class="macro"></p>
+        <ol id="preview" class="preview"></ol>
+      </details>
+      <div class="actions">
+        <p id="genStatus" class="status" role="status" aria-live="polite"></p>
+        <button id="force" type="button" class="secondary" hidden>Crea comunque</button>
+        <button id="cancel" type="button" class="secondary">Annulla</button>
+        <button id="create" type="submit">Crea task</button>
+      </div>
+    </form>
+
+    <div id="result" hidden>
+      <p id="resultStatus" class="status ok" role="status" aria-live="polite"></p>
+      <ul id="results" class="results"></ul>
+      <div class="actions">
+        <button id="again" type="button" class="secondary">Crea un altro processo</button>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="tasks.js"></script>
+</body>
+</html>
