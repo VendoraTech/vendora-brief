@@ -1,7 +1,11 @@
 'use strict';
 
-// Pagina di export: riceve il brief salvato nel frammento dell'URL (vedi prepareExport in app.js),
-// lo impagina per la stampa in PDF e lo offre come testo. Nessuna chiamata di rete.
+// Pagina di export, in due modi:
+// - export.html#z=… (pulsante «Esporta» del form): il brief viaggia nel frammento dell'URL, nessuna chiamata di rete;
+// - export.html?page=<id task> (link «Scarica brief PDF» nelle task): carica dall'API tutti i brief compilati della task.
+// In entrambi i casi impagina per la stampa in PDF e offre il testo.
+const API_URL = 'https://pvuixvdiladlxzgkwszq.supabase.co/functions/v1/vendora-brief';
+const KEY_STORAGE = 'vendoraBriefKey';
 const STORAGE = 'vendoraBriefExport';
 const PERF_FIELDS = [
   ['brand', 'Brand name'],
@@ -61,6 +65,17 @@ const setStatus = (text, kind = '') => {
   $('status').className = `status${kind ? ` ${kind}` : ''}`;
 };
 const el = (tag, props = {}, text = '') => Object.assign(document.createElement(tag), props, text ? { textContent: text } : {});
+const keyStore = {
+  get() { try { return sessionStorage.getItem(KEY_STORAGE) || localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } },
+  set(value, remember) {
+    try {
+      if (value) sessionStorage.setItem(KEY_STORAGE, value);
+      else sessionStorage.removeItem(KEY_STORAGE);
+      if (!value || !remember) localStorage.removeItem(KEY_STORAGE);
+      else localStorage.setItem(KEY_STORAGE, value);
+    } catch { /* storage non disponibile */ }
+  },
+};
 
 function fromBase64url(s) {
   const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
@@ -78,20 +93,57 @@ async function decode(fragment) {
   throw new Error('formato sconosciuto');
 }
 
-async function loadData() {
+// Un documento ha l'intestazione della task e una o più sezioni (una per tipo di brief).
+const single = (data) => ({ code: data.code, client: data.client, title: data.title, pageId: data.pageId, sections: [data] });
+
+async function loadFragment() {
   const fragment = location.hash.slice(1);
   if (fragment) {
     const data = await decode(fragment);
     // Tolgo i dati dall'URL, così non finiscono in un link copiato; restano solo in questa scheda.
     try { sessionStorage.setItem(STORAGE, JSON.stringify(data)); } catch { /* storage non disponibile */ }
     history.replaceState(null, '', location.pathname);
-    return { data, fresh: true };
+    return { doc: single(data), fresh: true };
   }
   try {
     const saved = sessionStorage.getItem(STORAGE);
-    if (saved) return { data: JSON.parse(saved), fresh: false };
+    if (saved) return { doc: single(JSON.parse(saved)), fresh: false };
   } catch { /* storage non disponibile */ }
-  return { data: null, fresh: false };
+  return { doc: null, fresh: false };
+}
+
+function pageFromUrl() {
+  const raw = new URLSearchParams(location.search).get('page') || '';
+  const m = raw.match(/[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}/i);
+  return m ? m[0].replace(/-/g, '') : '';
+}
+
+class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function fetchBrief(pageId, key) {
+  let res;
+  try {
+    res = await fetch(`${API_URL}?action=brief&pageId=${pageId}`, { headers: { 'X-App-Key': key } });
+  } catch {
+    throw new ApiError(0, 'Connessione non riuscita: controlla la rete e riprova.');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, data.error || `Errore ${res.status}`);
+  return data.brief;
+}
+
+// Dalla risposta dell'API: solo i tipi di brief con almeno un campo compilato.
+function docFromBrief(brief) {
+  const parts = [['performance', brief], ['catalogo', brief.catalog], ['cali', brief.cali], ['opportunita', brief.opportunita]];
+  const sections = parts
+    .map(([type, values]) => ({ ...(values || {}), type, completeness: values?.completeness || '' }))
+    .filter((d) => fieldsFor(d).some(([key]) => valueOf(d, key)));
+  return { code: brief.code, client: brief.client, title: brief.title, pageId: brief.pageId, sections };
 }
 
 const marketText = (codes = []) => [].concat(codes).filter(Boolean).map((c) => `${MARKET_NAMES[c] || c} (${c})`).join(', ');
@@ -104,17 +156,10 @@ function valueOf(data, key) {
   return value;
 }
 const exportedAt = new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
-const notionUrl = (data) => (data.pageId ? `https://www.notion.so/${String(data.pageId).replace(/-/g, '')}` : '');
+const notionUrl = (doc) => (doc.pageId ? `https://www.notion.so/${String(doc.pageId).replace(/-/g, '')}` : '');
+const kinds = (doc) => doc.sections.map(kind).join(' · ');
 
-function render(data) {
-  $('kicker').textContent = `Brief ${kind(data)}`;
-  $('title').textContent = data.title || 'Task senza titolo';
-  const meta = $('meta');
-  if (data.code) meta.append(el('strong', {}, data.code));
-  if (data.client) meta.append(el('span', {}, data.client));
-  if (data.completeness) meta.append(el('span', {}, data.completeness));
-  meta.append(el('span', {}, `Esportato il ${exportedAt}`));
-  if (notionUrl(data)) meta.append(el('a', { href: notionUrl(data), target: '_blank', rel: 'noopener' }, 'Apri la task in Notion'));
+function renderFields(data, container) {
   for (const [key, label, note] of fieldsFor(data)) {
     const value = valueOf(data, key);
     const title = el('h2', {}, label);
@@ -124,18 +169,41 @@ function render(data) {
     const body = el('p', { className: value ? '' : 'empty' }, isLink ? '' : value || '—');
     if (isLink) body.append(el('a', { href: value, target: '_blank', rel: 'noopener' }, value));
     section.append(title, body);
-    $('fields').append(section);
+    container.append(section);
   }
-  document.title = ['Brief', kind(data), data.code, data.client].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-');
+}
+
+function render(doc) {
+  const many = doc.sections.length > 1;
+  $('kicker').textContent = `Brief ${kinds(doc)}`;
+  $('title').textContent = doc.title || 'Task senza titolo';
+  const meta = $('meta');
+  if (doc.code) meta.append(el('strong', {}, doc.code));
+  if (doc.client) meta.append(el('span', {}, doc.client));
+  if (!many && doc.sections[0].completeness) meta.append(el('span', {}, doc.sections[0].completeness));
+  meta.append(el('span', {}, `Esportato il ${exportedAt}`));
+  if (notionUrl(doc)) meta.append(el('a', { href: notionUrl(doc), target: '_blank', rel: 'noopener' }, 'Apri la task in Notion'));
+  for (const data of doc.sections) {
+    if (many) {
+      const heading = el('h2', { className: 'sectiontitle' }, `BRIEF ${kind(data)}`);
+      if (data.completeness) heading.append(el('small', {}, data.completeness));
+      $('fields').append(heading);
+    }
+    renderFields(data, $('fields'));
+  }
+  document.title = ['Brief', kinds(doc).replace(/ · /g, ' '), doc.code, doc.client].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-');
   $('sheet').hidden = false;
 }
 
-function asText(data) {
-  const lines = [`BRIEF ${kind(data)}`, [data.code, data.client].filter(Boolean).join(' · '), data.title || ''];
-  if (data.completeness) lines.push(`Completezza: ${data.completeness}`);
-  if (notionUrl(data)) lines.push(`Task Notion: ${notionUrl(data)}`);
+function asText(doc) {
+  const lines = [`BRIEF ${kinds(doc)}`, [doc.code, doc.client].filter(Boolean).join(' · '), doc.title || ''];
+  if (notionUrl(doc)) lines.push(`Task Notion: ${notionUrl(doc)}`);
   lines.push(`Esportato il ${exportedAt}`);
-  for (const [key, label] of fieldsFor(data)) lines.push('', label.toUpperCase(), valueOf(data, key) || '—');
+  for (const data of doc.sections) {
+    if (doc.sections.length > 1) lines.push('', `=== BRIEF ${kind(data)} ===`);
+    if (data.completeness) lines.push(`Completezza: ${data.completeness}`);
+    for (const [key, label] of fieldsFor(data)) lines.push('', label.toUpperCase(), valueOf(data, key) || '—');
+  }
   return `${lines.filter((l, i) => l || i > 2).join('\n')}\n`;
 }
 
@@ -155,34 +223,82 @@ async function copy(text) {
   }
 }
 
-(async () => {
-  let loaded;
-  try {
-    loaded = await loadData();
-  } catch {
-    loaded = { data: null };
-  }
-  const { data, fresh } = loaded;
-  if (!data) {
-    for (const id of ['print', 'copy', 'txt']) $(id).hidden = true;
-    setStatus('Nessun brief da esportare: apri questa pagina dal pulsante «Esporta» del form in Notion.', 'err');
-    return;
-  }
-  render(data);
+function show(doc, autoPrint) {
+  render(doc);
+  for (const id of ['print', 'copy', 'txt']) $(id).hidden = false;
   setStatus('Brief pronto. Per il PDF scegli «Salva come PDF» come destinazione di stampa.');
-  $('print').addEventListener('click', () => window.print());
-  $('copy').addEventListener('click', async () => {
-    const ok = await copy(asText(data));
+  $('print').onclick = () => window.print();
+  $('copy').onclick = async () => {
+    const ok = await copy(asText(doc));
     setStatus(ok ? '✓ Testo copiato: incollalo dove ti serve.' : 'Copia non riuscita: seleziona il testo e copialo a mano.', ok ? 'ok' : 'err');
-  });
-  $('txt').addEventListener('click', () => {
-    const url = URL.createObjectURL(new Blob([asText(data)], { type: 'text/plain;charset=utf-8' }));
+  };
+  $('txt').onclick = () => {
+    const url = URL.createObjectURL(new Blob([asText(doc)], { type: 'text/plain;charset=utf-8' }));
     const a = el('a', { href: url, download: `${document.title}.txt` });
     document.body.append(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setStatus('✓ File di testo scaricato.', 'ok');
-  });
-  if (fresh) setTimeout(() => window.print(), 400); // apre subito la finestra di stampa/PDF
+  };
+  if (autoPrint) setTimeout(() => window.print(), 400); // apre subito la finestra di stampa/PDF
+}
+
+function hideActions() {
+  for (const id of ['print', 'copy', 'txt']) $(id).hidden = true;
+}
+
+// Link dalla task: chiave (salvata o chiesta una volta) → brief dall'API → PDF.
+async function openTask(pageId) {
+  hideActions();
+  const key = keyStore.get();
+  if (!key) return askKey(pageId, '');
+  setStatus('Caricamento del brief da Notion…');
+  try {
+    const doc = docFromBrief(await fetchBrief(pageId, key));
+    if (!doc.sections.length) {
+      setStatus('Questa task non ha ancora un brief compilato: compilalo dal form nella task.', 'err');
+      return;
+    }
+    $('keyBox').hidden = true;
+    show(doc, true);
+  } catch (e) {
+    if (e.status === 401) {
+      keyStore.set('');
+      askKey(pageId, 'Chiave non valida: inseriscila di nuovo.');
+    } else {
+      setStatus(e.message, 'err');
+    }
+  }
+}
+
+function askKey(pageId, message) {
+  $('keyBox').hidden = false;
+  setStatus(message || 'Inserisci la chiave del team per aprire il brief.', message ? 'err' : '');
+  $('key').focus();
+  $('keyBox').onsubmit = (e) => {
+    e.preventDefault();
+    const value = $('key').value.trim();
+    if (!value) return setStatus('Inserisci la chiave del team.', 'err');
+    keyStore.set(value, $('remember').checked);
+    $('key').value = '';
+    openTask(pageId);
+  };
+}
+
+(async () => {
+  const pageId = pageFromUrl();
+  if (pageId) return openTask(pageId);
+  let loaded;
+  try {
+    loaded = await loadFragment();
+  } catch {
+    loaded = { doc: null };
+  }
+  if (!loaded.doc) {
+    hideActions();
+    setStatus('Nessun brief da esportare: apri questa pagina dal pulsante «Esporta» del form o dal link «Scarica brief PDF» della task.', 'err');
+    return;
+  }
+  show(loaded.doc, loaded.fresh);
 })();

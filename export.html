@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; connect-src https://pvuixvdiladlxzgkwszq.supabase.co; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>Brief</title>
@@ -32,6 +32,16 @@ h1{margin:0 0 10px;font-size:20px;line-height:1.35;overflow-wrap:anywhere}
 .field p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .field p.empty{color:var(--muted)}
 .note{color:var(--amber);font-size:12px;font-weight:600;text-transform:none;letter-spacing:0}
+.sectiontitle{margin:28px 0 14px;padding-bottom:6px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.06em;color:var(--blue);break-after:avoid}
+.sectiontitle:first-child{margin-top:0}
+.sectiontitle small{margin-left:8px;color:var(--muted);font-weight:500;letter-spacing:0}
+.keybox{max-width:520px}
+.keybox h1{margin-bottom:6px}
+.keybox p{color:var(--muted);margin:0 0 16px;font-size:14px}
+.keybox .row{display:flex;gap:8px}
+.keybox input[type=password]{flex:1;min-width:0;font:inherit;border:1px solid var(--border);border-radius:7px;padding:10px 12px}
+.keybox input[type=password]:focus{outline:2px solid var(--blue);outline-offset:-1px}
+.keybox label{display:flex;gap:6px;align-items:center;margin-top:12px;font-size:14px;cursor:pointer}
 [hidden]{display:none!important}
 @media (max-width:640px){.sheet{margin:0;border:0;border-radius:0;padding:24px 16px}.toolbar button{flex:1 1 auto}}
 @page{size:A4;margin:16mm 16mm 18mm}
@@ -45,6 +55,15 @@ h1{margin:0 0 10px;font-size:20px;line-height:1.35;overflow-wrap:anywhere}
   <button id="copy" type="button">Copia testo</button>
   <button id="txt" type="button">Scarica .txt</button>
 </div>
+<form id="keyBox" class="sheet keybox" novalidate hidden>
+  <h1>Chiave team</h1>
+  <p>Serve per aprire il brief della task. Con «Ricorda» la chiedo una volta sola su questo browser.</p>
+  <div class="row">
+    <input id="key" type="password" autocomplete="current-password" placeholder="Chiave di accesso del team" aria-label="Chiave team">
+    <button type="submit" class="primary">Apri il brief</button>
+  </div>
+  <label><input id="remember" type="checkbox" checked> Ricorda la chiave su questo dispositivo</label>
+</form>
 <main id="sheet" class="sheet" hidden>
   <p id="kicker" class="kicker">Brief</p>
   <h1 id="title"></h1>
