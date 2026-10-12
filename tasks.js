@@ -13,8 +13,14 @@ const MAX_ASINS = 30;
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const keyStore = {
-  get() { try { return sessionStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } },
-  set(value) { try { value ? sessionStorage.setItem(KEY_STORAGE, value) : sessionStorage.removeItem(KEY_STORAGE); } catch { /* storage non disponibile */ } },
+  // Come nel form brief: anche la chiave ricordata nel browser (localStorage).
+  get() { try { return sessionStorage.getItem(KEY_STORAGE) || localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } },
+  set(value) {
+    try {
+      if (value) sessionStorage.setItem(KEY_STORAGE, value);
+      else { sessionStorage.removeItem(KEY_STORAGE); localStorage.removeItem(KEY_STORAGE); }
+    } catch { /* storage non disponibile */ }
+  },
 };
 
 let appKey = keyStore.get();

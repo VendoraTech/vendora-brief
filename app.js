@@ -53,7 +53,19 @@ const storage = (name) => ({
   get() { try { return sessionStorage.getItem(name) || ''; } catch { return ''; } },
   set(value) { try { value ? sessionStorage.setItem(name, value) : sessionStorage.removeItem(name); } catch { /* storage non disponibile */ } },
 });
-const keyStore = storage(KEY_STORAGE);
+// La chiave resta nella scheda (sessionStorage); con «Ricorda» anche nel browser (localStorage).
+const keyStore = {
+  get() { try { return sessionStorage.getItem(KEY_STORAGE) || localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; } },
+  set(value, remember) {
+    try {
+      if (value) sessionStorage.setItem(KEY_STORAGE, value);
+      else sessionStorage.removeItem(KEY_STORAGE);
+      if (!value || remember === false) localStorage.removeItem(KEY_STORAGE);
+      else if (remember) localStorage.setItem(KEY_STORAGE, value);
+    } catch { /* storage non disponibile */ }
+  },
+};
+let rememberChoice; // scelta fatta nel modulo della chiave; undefined se la chiave era già salvata
 const typeStore = storage(TYPE_STORAGE);
 
 let appKey = keyStore.get();
@@ -109,6 +121,7 @@ function logout(message = '') {
   $('keyForm').hidden = false;
   $('typeBox').hidden = true;
   $('taskBox').hidden = true;
+  $('form').hidden = true; // dopo «Esci» il brief caricato non resta visibile
   setStatus($('authStatus'), message, message ? 'err' : '');
   $('key').focus();
 }
@@ -118,7 +131,7 @@ async function connect() {
   $('keyBtn').disabled = true;
   try {
     await searchTasks('');
-    keyStore.set(appKey);
+    keyStore.set(appKey, rememberChoice);
     $('keyForm').hidden = true;
     $('typeBox').hidden = false;
     setStatus($('authStatus'), '');
@@ -532,6 +545,7 @@ function markDirty(key) {
 // La copia la fa il server partendo dal brief salvato: qui si scelgono solo i tipi di brief e le task.
 const TYPE_LABELS = { performance: 'PERFORMANCE', catalogo: 'CATALOGO', cali: 'CALI STRATEGICI', opportunita: 'ANALISI OPPORTUNITÀ' };
 const copyState = { selected: new Map(), related: [], conflicts: [], results: new Map(), busy: false, timer: 0, seq: 0, client: '' };
+const TAG_COLORS = ['default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const shortDate = (iso) => (iso ? new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '');
 const hasContent = (values) => Object.values(values).some((v) => (Array.isArray(v) ? v.length : v));
 const taskName = (t) => [t.code, t.title || 'Task senza titolo'].filter(Boolean).join(' · ');
@@ -552,8 +566,13 @@ function copyRow(task) {
   const text = document.createElement('span');
   text.append(taskName(task));
   const otherClient = task.client && task.client !== copyState.client ? task.client : '';
-  const meta = [task.kind, task.department, task.status, task.created && `creata il ${shortDate(task.created)}`, otherClient].filter(Boolean).join(' · ');
-  if (meta) text.append(Object.assign(document.createElement('small'), { textContent: meta }));
+  const meta = document.createElement('small');
+  if (task.department) {
+    const color = TAG_COLORS.includes(task.departmentColor) ? task.departmentColor : 'default';
+    meta.append(Object.assign(document.createElement('span'), { className: `tag tag-${color}`, textContent: task.department }));
+  }
+  meta.append([task.kind, task.status, task.created && `creata il ${shortDate(task.created)}`, otherClient].filter(Boolean).join(' · '));
+  text.append(meta);
   label.append(box, text);
   return label;
 }
@@ -714,6 +733,7 @@ $('keyForm').addEventListener('submit', (e) => {
   e.preventDefault();
   appKey = $('key').value.trim();
   if (!appKey) return setStatus($('authStatus'), 'Inserisci la chiave del team.', 'err');
+  rememberChoice = $('remember').checked;
   connect();
 });
 

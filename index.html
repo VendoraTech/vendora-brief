@@ -81,6 +81,12 @@ dialog::backdrop{background:rgba(15,15,15,.45)}
 .copybox{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:12px 0 0}
 #copyTypes{grid-template-columns:repeat(2,minmax(0,1fr))}
 .inline{display:flex;gap:6px;align-items:center;font-size:13.5px;font-weight:500;margin:0;cursor:pointer;white-space:nowrap}
+/* Etichette del Dipartimento con i colori delle opzioni Notion */
+.tag{display:inline-block;padding:0 6px;border-radius:4px;font-size:12px;font-weight:600;line-height:18px;margin-right:6px;background:var(--tag-bg);color:var(--tag-fg)}
+.tag-default,.tag-gray{--tag-bg:#e3e2e0;--tag-fg:#32302c}.tag-brown{--tag-bg:#eee0da;--tag-fg:#442a1e}.tag-orange{--tag-bg:#fadec9;--tag-fg:#49290e}
+.tag-yellow{--tag-bg:#fdecc8;--tag-fg:#402c1b}.tag-green{--tag-bg:#dbeddb;--tag-fg:#1c3829}.tag-blue{--tag-bg:#d3e5ef;--tag-fg:#183347}
+.tag-purple{--tag-bg:#e8deee;--tag-fg:#412454}.tag-pink{--tag-bg:#f5e0e9;--tag-fg:#4c2337}.tag-red{--tag-bg:#ffe2dd;--tag-fg:#5d1715}
+@media (prefers-color-scheme:dark){.tag{--tag-fg:rgba(255,255,255,.88)}.tag-default,.tag-gray{--tag-bg:#474c50}.tag-brown{--tag-bg:#5c473d}.tag-orange{--tag-bg:#88542c}.tag-yellow{--tag-bg:#927640}.tag-green{--tag-bg:#2b593f}.tag-blue{--tag-bg:#28456c}.tag-purple{--tag-bg:#4b3a5c}.tag-pink{--tag-bg:#69314c}.tag-red{--tag-bg:#6e3630}}
 .inline input{width:16px;height:16px;margin:0;accent-color:var(--blue)}
 .picklist{display:grid;gap:6px;margin-top:8px;max-height:220px;overflow:auto}
 .picklist:empty{display:none}
@@ -105,7 +111,8 @@ dialog::backdrop{background:rgba(15,15,15,.45)}
       <input id="key" class="grow" type="password" autocomplete="current-password" placeholder="Chiave di accesso del team" aria-describedby="keyHint authStatus">
       <button id="keyBtn" type="submit">Accedi</button>
     </div>
-    <p id="keyHint" class="hint" style="margin:8px 0 0">Resta salvata solo in questa scheda del browser e viene cancellata alla chiusura.</p>
+    <label class="inline" style="margin-top:10px"><input id="remember" type="checkbox" checked> Ricorda la chiave su questo dispositivo</label>
+    <p id="keyHint" class="hint" style="margin:6px 0 0">Così non devi reinserirla a ogni apertura. Togli la spunta su un computer condiviso; «Esci» la cancella.</p>
     <div id="authStatus" class="status" role="status" aria-live="polite"></div>
   </form>
 
