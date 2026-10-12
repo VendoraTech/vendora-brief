@@ -192,7 +192,7 @@ async function searchTasks(q) {
 }
 
 function setBusy(busy) {
-  for (const id of ['save', 'reload', 'task']) $(id).disabled = busy;
+  for (const id of ['save', 'reload', 'task', 'copy']) $(id).disabled = busy;
 }
 
 function snapshot(brief) {
@@ -527,6 +527,176 @@ function markDirty(key) {
   if (key && $(`${key}Error`)?.textContent) showError(key, '');
   if ($('formStatus').classList.contains('ok')) setStatus($('formStatus'), 'Modifiche non salvate');
 }
+
+// --- Copia del brief su altre task ---
+// La copia la fa il server partendo dal brief salvato: qui si scelgono solo i tipi di brief e le task.
+const TYPE_LABELS = { performance: 'PERFORMANCE', catalogo: 'CATALOGO', cali: 'CALI STRATEGICI', opportunita: 'ANALISI OPPORTUNITÀ' };
+const copyState = { selected: new Map(), related: [], conflicts: [], results: new Map(), busy: false, timer: 0, seq: 0 };
+const hasContent = (values) => Object.values(values).some((v) => (Array.isArray(v) ? v.length : v));
+const taskName = (t) => [t.code, t.title || 'Task senza titolo'].filter(Boolean).join(' · ');
+
+function copyRow(task) {
+  const label = document.createElement('label');
+  label.className = 'check';
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.value = task.id;
+  box.checked = copyState.selected.has(task.id);
+  box.addEventListener('change', () => {
+    if (box.checked) copyState.selected.set(task.id, task);
+    else copyState.selected.delete(task.id);
+    for (const other of $('copyDialog').querySelectorAll('input[type=checkbox]')) if (other.value === task.id) other.checked = box.checked;
+    updateCopyButton();
+  });
+  const text = document.createElement('span');
+  text.append(taskName(task));
+  const meta = [task.kind, task.department, task.client].filter(Boolean).join(' · ');
+  if (meta) text.append(Object.assign(document.createElement('small'), { textContent: meta }));
+  label.append(box, text);
+  return label;
+}
+
+const copyTypes = () => [...$('copyTypes').querySelectorAll('input:checked')].map((b) => b.value);
+
+function updateCopyButton() {
+  const n = copyState.selected.size;
+  $('copyGo').textContent = n ? `Copia su ${n} task` : 'Copia';
+  $('copyGo').disabled = copyState.busy || !n || !copyTypes().length;
+}
+
+async function openCopy() {
+  if (!current) return;
+  if (dirty) {
+    setStatus($('formStatus'), 'Hai modifiche non salvate: salva il brief prima di copiarlo su altre task.', 'warn');
+    return;
+  }
+  Object.assign(copyState, { selected: new Map(), related: [], conflicts: [], results: new Map() });
+  $('copySetup').hidden = false;
+  $('copyResults').hidden = true;
+  $('copyOverwrite').hidden = true;
+  $('copyGo').hidden = false;
+  $('copySearch').value = '';
+  $('searchList').replaceChildren();
+  setStatus($('copyStatus'), '');
+  $('copySource').textContent = `Da: ${taskName(current.summary)}`;
+
+  const rows = TYPE_NAMES.map((type) => {
+    const cfg = TYPES[type];
+    const filled = hasContent(cfg.snapshot(cfg.data(current.brief) || {}));
+    const label = document.createElement('label');
+    label.className = 'check';
+    const box = Object.assign(document.createElement('input'), { type: 'checkbox', value: type, checked: filled && type === briefType, disabled: !filled });
+    box.addEventListener('change', updateCopyButton);
+    label.append(box, filled ? TYPE_LABELS[type] : `${TYPE_LABELS[type]} (vuoto)`);
+    return label;
+  });
+  $('copyTypes').replaceChildren(...rows);
+  if (!rows.some((r) => !r.querySelector('input').disabled)) setStatus($('copyStatus'), 'Questa task non ha ancora un brief salvato da copiare.', 'warn');
+
+  $('relatedHint').textContent = 'Carico le task collegate alla stessa macro…';
+  $('relatedAll').hidden = true;
+  $('relatedList').replaceChildren();
+  updateCopyButton();
+  $('copyDialog').showModal();
+  const pageId = current.pageId;
+  try {
+    const { tasks } = await api({ action: 'related', pageId });
+    if (!current || !sameId(current.pageId, pageId) || !$('copyDialog').open) return;
+    copyState.related = tasks;
+    $('relatedHint').textContent = tasks.length
+      ? `Task collegate alla stessa macro (${tasks.length}):`
+      : 'Questa task non è collegata a una macro: cerca le task qui sotto.';
+    $('relatedAll').hidden = tasks.length < 2;
+    $('relatedList').replaceChildren(...tasks.map(copyRow));
+  } catch (e) {
+    if (e.status !== 401) $('relatedHint').textContent = `Task collegate non disponibili: ${e.message}`;
+  }
+}
+
+async function searchCopyTargets(q) {
+  const seq = ++copyState.seq;
+  if (!q) return $('searchList').replaceChildren();
+  try {
+    const { tasks } = await api({ action: 'tasks', q });
+    if (seq !== copyState.seq) return;
+    const shown = new Set(copyState.related.map((t) => t.id));
+    const list = tasks.filter((t) => !sameId(t.id, current.pageId) && !shown.has(t.id));
+    $('searchList').replaceChildren(...(list.length ? list.map(copyRow) : [Object.assign(document.createElement('p'), { className: 'hint', textContent: `Nessun’altra task trovata per «${q}».` })]));
+  } catch (e) {
+    if (e.status !== 401) setStatus($('copyStatus'), e.message, 'err');
+  }
+}
+
+const RESULT_TEXT = {
+  copied: '✓ copiato',
+  same: '= era già uguale, nessuna modifica',
+  conflict: '⚠ ha già un brief diverso: non toccato',
+  error: '✗ ',
+};
+
+function renderCopyResults() {
+  const items = [...copyState.results.values()];
+  $('copyResults').replaceChildren(...items.map((r) => {
+    const li = document.createElement('li');
+    const task = r.title ? r : copyState.selected.get(r.id) || r; // gli errori riportano solo l'id
+    const what = r.status === 'conflict' && r.types?.length ? ` (${r.types.map((t) => TYPE_LABELS[t]).join(', ')})` : '';
+    li.append(Object.assign(document.createElement('strong'), { textContent: taskName(task) }), document.createElement('br'),
+      `${RESULT_TEXT[r.status] || ''}${r.status === 'error' ? r.error : ''}${what}`);
+    return li;
+  }));
+  const count = (s) => items.filter((r) => r.status === s).length;
+  const parts = [
+    [count('copied'), (n) => `✓ copiato su ${n} task`],
+    [count('same'), (n) => `${n} già ${n === 1 ? 'uguale' : 'uguali'}`],
+    [count('conflict'), (n) => `${n} con un brief diverso`],
+    [count('error'), (n) => `${n} con errore`],
+  ].filter(([n]) => n).map(([n, text]) => text(n));
+  copyState.conflicts = items.filter((r) => r.status === 'conflict').map((r) => r.id);
+  setStatus($('copyStatus'), parts.join(' · '), count('error') || count('conflict') ? 'warn' : 'ok');
+  $('copyOverwrite').hidden = !copyState.conflicts.length;
+  $('copyOverwrite').textContent = `Sovrascrivi ${copyState.conflicts.length} task`;
+  $('copySetup').hidden = true;
+  $('copyResults').hidden = false;
+  $('copyGo').hidden = true;
+}
+
+async function runCopy(targetIds, overwrite = false) {
+  const types = copyTypes();
+  if (!targetIds.length || !types.length) return;
+  copyState.busy = true;
+  updateCopyButton();
+  $('copyOverwrite').disabled = true;
+  setStatus($('copyStatus'), `Copia in corso su ${targetIds.length} task…`);
+  try {
+    const data = await api({ action: 'copy' }, {
+      method: 'POST',
+      body: JSON.stringify({ sourceId: current.pageId, targetIds, types, overwrite }),
+    });
+    for (const r of data.results) copyState.results.set(r.id, r);
+    renderCopyResults();
+  } catch (e) {
+    if (e.status !== 401) setStatus($('copyStatus'), e.message, 'err');
+  } finally {
+    copyState.busy = false;
+    $('copyOverwrite').disabled = false;
+    updateCopyButton();
+  }
+}
+
+$('copy').addEventListener('click', openCopy);
+$('copyClose').addEventListener('click', () => !copyState.busy && $('copyDialog').close());
+$('copyDialog').addEventListener('cancel', (e) => copyState.busy && e.preventDefault());
+$('copyGo').addEventListener('click', () => runCopy([...copyState.selected.keys()]));
+$('copyOverwrite').addEventListener('click', () => runCopy(copyState.conflicts, true));
+$('relatedAll').addEventListener('click', () => {
+  for (const t of copyState.related) copyState.selected.set(t.id, t);
+  for (const box of $('relatedList').querySelectorAll('input[type=checkbox]')) box.checked = true;
+  updateCopyButton();
+});
+$('copySearch').addEventListener('input', () => {
+  clearTimeout(copyState.timer);
+  copyState.timer = setTimeout(() => searchCopyTargets($('copySearch').value.trim()), 350);
+});
 
 // --- Eventi ---
 $('keyForm').addEventListener('submit', (e) => {

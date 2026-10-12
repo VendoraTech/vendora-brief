@@ -75,6 +75,19 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .options .trail{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
 [hidden]{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+dialog{width:min(680px,calc(100vw - 24px));max-height:calc(100vh - 24px);border:1px solid var(--border);border-radius:12px;padding:18px 18px 8px;background:var(--bg);color:var(--text)}
+dialog::backdrop{background:rgba(15,15,15,.45)}
+.dialogtitle{font-size:18px;margin:0}
+.copybox{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:12px 0 0}
+.picklist{display:grid;gap:6px;margin-top:8px;max-height:220px;overflow:auto}
+.picklist:empty{display:none}
+.picklist .check{align-items:flex-start;font-size:14px}
+.picklist .check input{margin-top:2px}
+.picklist small{display:block;color:var(--muted);font-size:12.5px}
+.results{list-style:none;margin:12px 0 0;padding:0;font-size:14px}
+.results li{padding:7px 0;border-top:1px solid var(--border);overflow-wrap:anywhere}
+.results li:first-child{border-top:0}
+.dialogactions{position:sticky;bottom:-8px}
 @media (max-width:560px){.wrap{padding:16px 16px 40px}h1{font-size:25px}.types,.types.three{grid-template-columns:1fr}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.row.stack{flex-direction:column;align-items:stretch}.taskhead{flex-direction:column;gap:6px}.actions button,.actions a.button{flex:1 1 auto;padding:0 12px}#save{flex-basis:100%}}
 </style>
 </head>
@@ -360,11 +373,48 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
     <div class="actions">
       <div id="formStatus" class="status" role="status" aria-live="polite"></div>
+      <button id="copy" type="button" class="secondary" title="Copia il brief salvato su una o più altre task">Copia su altre task</button>
       <a id="export" class="button" href="export.html" target="_blank" rel="noopener" aria-disabled="true" title="Apre il brief salvato in una pagina pronta da salvare in PDF o copiare come testo">Esporta</a>
       <button id="reload" type="button" class="secondary" aria-label="Ricarica da Notion" title="Ricarica i valori da Notion (scarta le modifiche non salvate)">Ricarica</button>
       <button id="save" type="submit">Salva brief in Notion</button>
     </div>
   </form>
+
+  <dialog id="copyDialog" aria-labelledby="copyTitle">
+    <div class="row" style="justify-content:space-between;align-items:baseline">
+      <h2 id="copyTitle" class="dialogtitle">Copia il brief su altre task</h2>
+      <button id="copyClose" type="button" class="link">Chiudi</button>
+    </div>
+    <p id="copySource" class="hint"></p>
+
+    <div id="copySetup">
+      <fieldset class="copybox">
+        <legend>Cosa copiare</legend>
+        <div id="copyTypes" class="checks"></div>
+        <p class="hint" style="margin:8px 0 0">Si copia il brief salvato in Notion, non le modifiche ancora da salvare.</p>
+      </fieldset>
+
+      <fieldset class="copybox">
+        <legend>Su quali task</legend>
+        <div class="row" style="justify-content:space-between">
+          <p id="relatedHint" class="hint" style="margin:0"></p>
+          <button id="relatedAll" type="button" class="link" hidden>Seleziona tutte</button>
+        </div>
+        <div id="relatedList" class="picklist"></div>
+        <label for="copySearch" class="sr">Cerca altre task</label>
+        <input id="copySearch" type="search" autocomplete="off" placeholder="Cerca altre task per nome o ID (es. VE-42394)" style="margin-top:10px">
+        <div id="searchList" class="picklist"></div>
+      </fieldset>
+    </div>
+
+    <ul id="copyResults" class="results" hidden></ul>
+
+    <div class="actions dialogactions">
+      <div id="copyStatus" class="status" role="status" aria-live="polite"></div>
+      <button id="copyOverwrite" type="button" class="secondary" hidden>Sovrascrivi</button>
+      <button id="copyGo" type="button">Copia</button>
+    </div>
+  </dialog>
 </main>
 <script src="node-picker.js"></script>
 <script src="app.js"></script>
