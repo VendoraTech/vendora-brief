@@ -531,7 +531,8 @@ function markDirty(key) {
 // --- Copia del brief su altre task ---
 // La copia la fa il server partendo dal brief salvato: qui si scelgono solo i tipi di brief e le task.
 const TYPE_LABELS = { performance: 'PERFORMANCE', catalogo: 'CATALOGO', cali: 'CALI STRATEGICI', opportunita: 'ANALISI OPPORTUNITÀ' };
-const copyState = { selected: new Map(), related: [], conflicts: [], results: new Map(), busy: false, timer: 0, seq: 0 };
+const copyState = { selected: new Map(), related: [], conflicts: [], results: new Map(), busy: false, timer: 0, seq: 0, client: '' };
+const shortDate = (iso) => (iso ? new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '');
 const hasContent = (values) => Object.values(values).some((v) => (Array.isArray(v) ? v.length : v));
 const taskName = (t) => [t.code, t.title || 'Task senza titolo'].filter(Boolean).join(' · ');
 
@@ -550,7 +551,8 @@ function copyRow(task) {
   });
   const text = document.createElement('span');
   text.append(taskName(task));
-  const meta = [task.kind, task.department, task.client].filter(Boolean).join(' · ');
+  const otherClient = task.client && task.client !== copyState.client ? task.client : '';
+  const meta = [task.kind, task.department, task.status, task.created && `creata il ${shortDate(task.created)}`, otherClient].filter(Boolean).join(' · ');
   if (meta) text.append(Object.assign(document.createElement('small'), { textContent: meta }));
   label.append(box, text);
   return label;
@@ -570,7 +572,9 @@ async function openCopy() {
     setStatus($('formStatus'), 'Hai modifiche non salvate: salva il brief prima di copiarlo su altre task.', 'warn');
     return;
   }
-  Object.assign(copyState, { selected: new Map(), related: [], conflicts: [], results: new Map() });
+  Object.assign(copyState, { selected: new Map(), related: [], conflicts: [], results: new Map(), client: current.brief.client || '' });
+  $('copyAllClients').checked = false;
+  $('allClientsBox').hidden = !copyState.client;
   $('copySetup').hidden = false;
   $('copyResults').hidden = true;
   $('copyOverwrite').hidden = true;
@@ -611,18 +615,24 @@ async function openCopy() {
   } catch (e) {
     if (e.status !== 401) $('relatedHint').textContent = `Task collegate non disponibili: ${e.message}`;
   }
+  if ($('copyDialog').open && current && sameId(current.pageId, pageId)) await searchCopyTargets('');
 }
 
+// Senza ricerca: le task create più di recente per lo stesso cliente della task di origine.
 async function searchCopyTargets(q) {
   const seq = ++copyState.seq;
-  if (!q) return $('searchList').replaceChildren();
+  const client = $('copyAllClients').checked ? '' : copyState.client;
+  const where = client ? ` per ${client}` : '';
+  $('clientHint').textContent = q ? `Risultati per «${q}»${client ? ` tra le task di ${client}` : ''}:` : `Task create di recente${where}:`;
+  $('searchList').replaceChildren(Object.assign(document.createElement('p'), { className: 'hint', textContent: 'Caricamento…' }));
   try {
-    const { tasks } = await api({ action: 'tasks', q });
-    if (seq !== copyState.seq) return;
+    const { tasks } = await api({ action: 'tasks', q, client, sort: 'created' });
+    if (seq !== copyState.seq || !current) return;
     const shown = new Set(copyState.related.map((t) => t.id));
     const list = tasks.filter((t) => !sameId(t.id, current.pageId) && !shown.has(t.id));
-    $('searchList').replaceChildren(...(list.length ? list.map(copyRow) : [Object.assign(document.createElement('p'), { className: 'hint', textContent: `Nessun’altra task trovata per «${q}».` })]));
+    $('searchList').replaceChildren(...(list.length ? list.map(copyRow) : [Object.assign(document.createElement('p'), { className: 'hint', textContent: q ? `Nessun’altra task trovata per «${q}».` : `Nessun’altra task${where}.` })]));
   } catch (e) {
+    if (seq === copyState.seq) $('searchList').replaceChildren();
     if (e.status !== 401) setStatus($('copyStatus'), e.message, 'err');
   }
 }
@@ -693,6 +703,7 @@ $('relatedAll').addEventListener('click', () => {
   for (const box of $('relatedList').querySelectorAll('input[type=checkbox]')) box.checked = true;
   updateCopyButton();
 });
+$('copyAllClients').addEventListener('change', () => searchCopyTargets($('copySearch').value.trim()));
 $('copySearch').addEventListener('input', () => {
   clearTimeout(copyState.timer);
   copyState.timer = setTimeout(() => searchCopyTargets($('copySearch').value.trim()), 350);

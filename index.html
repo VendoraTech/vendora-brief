@@ -79,6 +79,9 @@ dialog{width:min(680px,calc(100vw - 24px));max-height:calc(100vh - 24px);border:
 dialog::backdrop{background:rgba(15,15,15,.45)}
 .dialogtitle{font-size:18px;margin:0}
 .copybox{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:12px 0 0}
+#copyTypes{grid-template-columns:repeat(2,minmax(0,1fr))}
+.inline{display:flex;gap:6px;align-items:center;font-size:13.5px;font-weight:500;margin:0;cursor:pointer;white-space:nowrap}
+.inline input{width:16px;height:16px;margin:0;accent-color:var(--blue)}
 .picklist{display:grid;gap:6px;margin-top:8px;max-height:220px;overflow:auto}
 .picklist:empty{display:none}
 .picklist .check{align-items:flex-start;font-size:14px}
@@ -401,8 +404,12 @@ dialog::backdrop{background:rgba(15,15,15,.45)}
           <button id="relatedAll" type="button" class="link" hidden>Seleziona tutte</button>
         </div>
         <div id="relatedList" class="picklist"></div>
+        <div class="row" style="justify-content:space-between;margin-top:14px">
+          <p id="clientHint" class="hint" style="margin:0"></p>
+          <label class="inline" id="allClientsBox"><input id="copyAllClients" type="checkbox"> Tutti i clienti</label>
+        </div>
         <label for="copySearch" class="sr">Cerca altre task</label>
-        <input id="copySearch" type="search" autocomplete="off" placeholder="Cerca altre task per nome o ID (es. VE-42394)" style="margin-top:10px">
+        <input id="copySearch" type="search" autocomplete="off" placeholder="Cerca per nome o ID (es. Creare SEO, VE-42394)" style="margin-top:8px">
         <div id="searchList" class="picklist"></div>
       </fieldset>
     </div>
